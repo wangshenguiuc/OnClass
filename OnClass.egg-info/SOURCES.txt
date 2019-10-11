@@ -1,0 +1,8 @@
+setup.py
+OnClass/__init__.py
+OnClass/help.py
+OnClass.egg-info/PKG-INFO
+OnClass.egg-info/SOURCES.txt
+OnClass.egg-info/dependency_links.txt
+OnClass.egg-info/requires.txt
+OnClass.egg-info/top_level.txt

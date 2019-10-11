@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: OnClass
+Version: 0.0.1
+Summary: Single Cell Annotation
+Home-page: https://github.com/wangshenguiuc/OnClass
+Author: swang
+Author-email: swang91@stanford.edu
+License: MIT Licence
+Description: Unifying single-cell annotations based on the Cell Ontology
+Keywords: pip,single_cell,OnClass,swang
+Platform: any
