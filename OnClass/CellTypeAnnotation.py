@@ -1,9 +1,9 @@
 import sys
 import numpy as np
 import os
-from OnClass import OnClassPred
+import OnClassPred
 
-from OnClass.utils import *
+from utils import *
 
 #repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/'
 #sys.path.append(repo_dir)
