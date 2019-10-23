@@ -9,7 +9,7 @@ from OnClass.OnClassPred import OnClassPred
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
 DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
-OUTPUT_DIR = DATA_DIR + '/marker_gene/'
+OUTPUT_DIR = DATA_DIR + '/marker_genes/'
 if not os.path.exists(OUTPUT_DIR):
 	os.makedirs(OUTPUT_DIR)
 	

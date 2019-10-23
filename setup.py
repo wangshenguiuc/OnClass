@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name = "OnClass",
-    version = "0.0.1",
-    keywords = ("pip", "single_cell", "OnClass", "swang"),
+    version = "0.1",
+    keywords = ("pip", "single cell", "OnClass"),
     description = "Single Cell Annotation based on the Cell Ontology",
     long_description = "Unifying single-cell annotations based on the Cell Ontology",
     license = "MIT Licence",
@@ -24,5 +24,6 @@ setup(
         'numpy>=1.16.4',
         'scipy>=1.3.1',
         'scikit-learn>=0.21.3',
+        'scanorama>=1.4',
     ]
 )

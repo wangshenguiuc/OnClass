@@ -1,11 +1,9 @@
-|PyPI| |Docs| |figshare|
+|PyPI| |Docs| 
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/scanpy.svg
    :target: https://pypi.org/project/OnClass/
 .. |Docs| image:: https://readthedocs.com/projects/icb-scanpy/badge/?version=latest
    :target: https://onclass.readthedocs.io/en/latest/introduction.html
-.. |figshare| image:: https://commons.wikimedia.org/wiki/File:Figshare_logo.svg
-   :target: https://figshare.com/projects/OnClass/70637
 	  
 OnClass: single-cell annotation based on the Cell Ontology
 =========
