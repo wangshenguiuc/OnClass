@@ -1,17 +1,22 @@
 import sys
 import numpy as np
 import os
-from OnClassPred import OnClassPred
+repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
+sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
+sys.path.append(repo_dir)
+from OnClass.utils import *
+from OnClass.OnClassPred import OnClassPred
+from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-from utils import *
-
-output_dir = '../../OnClass_data/marker_gene/'
-if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+OUTPUT_DIR = DATA_DIR + '/marker_gene/'
+if not os.path.exists(OUTPUT_DIR):
+	os.makedirs(OUTPUT_DIR)
+	
 ## read data
-data_file = '../../OnClass_data/raw_data/tabula-muris-senis-facs'
+data_file = DATA_DIR + '/raw_data/tabula-muris-senis-facs'
 
-if not os.path.isfile(output_dir + 'FACS-predicted_score_matrix.npy'):
+if not os.path.isfile(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy'):
 	train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
 	tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
 	ntrain,ngene = np.shape(train_X)
@@ -24,13 +29,13 @@ if not os.path.isfile(output_dir + 'FACS-predicted_score_matrix.npy'):
 	OnClass_obj.train(train_X, train_Y, Y_emb, max_iter=20, nhidden=[100])
 	test_Y_pred = OnClass_obj.predict(test_X)
 
-	np.save(output_dir + 'FACS-predicted_score_matrix.npy', test_Y_pred)
+	np.save(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy', test_Y_pred)
 
 fig_dir = '../../OnClass_data/figures/marker_gene/'
 if not os.path.exists(fig_dir):
 	os.makedirs(fig_dir)
-
-data_file = '../../OnClass_data/raw_data/tabula-muris-senis-facs'
+	
+## read data
 train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
 train_X = np.log1p(train_X.todense()+1)
 tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
@@ -43,9 +48,9 @@ for i,g in enumerate(genes):
 	g2i[g.lower()] = i
 	i2g[i] = g
 ngene = len(genes)
+test_Y_pred = np.load(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy')
 
-test_Y_pred = np.load(output_dir + 'FACS-predicted_score_matrix.npy')
-
+## Differential expression analysis
 ncell = np.shape(test_Y_pred)[0]
 co2name, name2co = get_ontology_name()
 tp2genes = read_type2genes(g2i)
@@ -100,8 +105,8 @@ ax.set_yticklabels(['{:,.0%}'.format(x) for x in vals])
 plt.tight_layout()
 plt.savefig(fig_dir+'mark_genes.pdf')
 
-
-fmarker_genes = open(output_dir+'marker_genes.txt','w')
+## Write marker genes to file
+fmarker_genes = open(OUTPUT_DIR+'marker_genes.txt','w')
 for ci in range(nlabel):
 	tp = i2l[ci]
 	k_bot_cells = np.argsort(test_Y_pred[:,ci])[:topk]

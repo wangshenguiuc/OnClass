@@ -13,12 +13,13 @@ from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
 
 
 DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
-OUTPUT_DIR = DATA_DIR + '/figures/26-datasets/'
-if not os.path.exists(OUTPUT_DIR):
-	os.makedirs(OUTPUT_DIR)
+FIG_DIR = DATA_DIR + '/figures/26-datasets/'
+if not os.path.exists(FIG_DIR):
+	os.makedirs(FIG_DIR)
+INPUT_DIR = DATA_DIR + '/26-datasets/'
 
 ## read TMS and 26-datasets data
-test_Y_pred = np.load(OUTPUT_DIR + '26_datasets_predicted_score_matrix.npy')
+test_Y_pred = np.load(INPUT_DIR + '26_datasets_predicted_score_matrix.npy')
 datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True, DATA_DIR=DATA_DIR)
 datasets, genes = merge_datasets(datasets, genes_list)
 
@@ -62,8 +63,8 @@ print (pvalue)
 
 lab2col, lab2marker = generate_colors(labels)
 index = np.random.choice(len(labels),5000)
-plot_umap(test_Y_pred[index, :nseen], labels[index], lab2col, file = OUTPUT_DIR + 'our_umap.pdf', lab2marker=lab2marker)
-plot_umap(datasets_dimred[index,:], labels[index], lab2col, file = OUTPUT_DIR + 'scan_umap.pdf', lab2marker=lab2marker)
+plot_umap(test_Y_pred[index, :nseen], labels[index], lab2col, file = FIG_DIR + 'our_umap.pdf', lab2marker=lab2marker)
+plot_umap(datasets_dimred[index,:], labels[index], lab2col, file = FIG_DIR + 'scan_umap.pdf', lab2marker=lab2marker)
 all_data = [sil_sc, orig_sil_sc]
 fig = plt.figure(1, figsize=(5, 5))
 
@@ -86,4 +87,4 @@ plt.xticks([1,2],['OnClass','Scanorama'])
 plt.ylim([-0.4, 1])
 plt.yticks([-0.4,-0.2,0,0.2,0.4,0.6,0.8,1])
 plt.tight_layout()
-fig.savefig(OUTPUT_DIR + 'boxplot.pdf', bbox_inches='tight')
+fig.savefig(FIG_DIR + 'boxplot.pdf', bbox_inches='tight')

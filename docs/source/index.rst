@@ -8,7 +8,6 @@
    
    introduction
    installation
-   quick_start
-   tutorials
-   api
+   datasets
+   Tutorial
    references
