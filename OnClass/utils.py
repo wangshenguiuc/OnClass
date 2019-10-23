@@ -59,7 +59,7 @@ def map_26_datasets_cell2cid(use_detailed=False):
 	return onto_ids, keywords, keyword2cname
 
 def read_type2genes(g2i, DATA_DIR = '../../OnClass_data/'):
-	co2name, name2co = get_ontology_name()
+	co2name, name2co = get_ontology_name(DATA_DIR = DATA_DIR)
 
 	c2cnew = {}
 	c2cnew['cd4+ t cell'] = 'CD4-positive, CXCR3-negative, CCR6-negative, alpha-beta T cell'.lower()
@@ -251,8 +251,8 @@ def parse_para(para_set):
 	return method_name,split_method,combine_unseen,cell_dim,co_dim,premi,cellmi,comi
 
 
-def read_data(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False):
-	name2co = get_ontology_name()[1]
+def read_data(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False, DATA_DIR = '../../OnClass_data/'):
+	name2co = get_ontology_name(DATA_DIR = DATA_DIR)[1]
 	np.random.seed(seed)
 	if 'facs' in filename:
 		tech = 'facs'

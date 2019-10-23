@@ -8,7 +8,7 @@ from OnClass.OnClassPred import OnClassPred
 ## read TMS FACS data
 DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
 data_file = DATA_DIR + 'raw_data/tabula-muris-senis-facs'
-X, Y = read_data(filename=data_file)
+X, Y = read_data(filename=data_file, DATA_DIR = DATA_DIR)
 
 ## split TMS into training and test
 train_X, train_Y_str, test_X, test_Y_str = SplitTrainTest(X, Y)
