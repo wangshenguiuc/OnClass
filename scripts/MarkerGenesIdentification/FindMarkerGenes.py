@@ -17,17 +17,17 @@ if not os.path.exists(OUTPUT_DIR):
 data_file = DATA_DIR + '/raw_data/tabula-muris-senis-facs'
 
 if not os.path.isfile(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy'):
-	train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
+	train_X, train_Y_str, genes_list = read_data(filename=data_file, DATA_DIR=DATA_DIR, return_genes=True)
 	tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
 	ntrain,ngene = np.shape(train_X)
 	## embedd the cell ontology
-	unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str, co_dim = 200, co_mi = 0)
+	unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str, co_dim = 200, co_mi = 0, DATA_DIR=DATA_DIR)
 	train_Y = MapLabel2CL(train_Y_str, l2i)
 
 	## train and predict
 	OnClass_obj = OnClassPred()
 	OnClass_obj.train(train_X, train_Y, Y_emb, max_iter=20, nhidden=[100])
-	test_Y_pred = OnClass_obj.predict(test_X)
+	test_Y_pred = OnClass_obj.predict(train_X)
 
 	np.save(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy', test_Y_pred)
 
@@ -36,10 +36,10 @@ if not os.path.exists(fig_dir):
 	os.makedirs(fig_dir)
 	
 ## read data
-train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
+train_X, train_Y_str, genes_list = read_data(filename=data_file, DATA_DIR=DATA_DIR, return_genes=True)
 train_X = np.log1p(train_X.todense()+1)
 tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
-unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str)
+unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str, DATA_DIR=DATA_DIR)
 train_Y = MapLabel2CL(train_Y_str, l2i)
 genes = genes_list[datanames[0]]
 g2i = {}
@@ -52,8 +52,8 @@ test_Y_pred = np.load(OUTPUT_DIR + 'FACS-predicted_score_matrix.npy')
 
 ## Differential expression analysis
 ncell = np.shape(test_Y_pred)[0]
-co2name, name2co = get_ontology_name()
-tp2genes = read_type2genes(g2i)
+co2name, name2co = get_ontology_name(DATA_DIR=DATA_DIR)
+tp2genes = read_type2genes(g2i, DATA_DIR=DATA_DIR)
 thres = np.array(range(1,1000))
 topk = 50
 in_tms_ranks = []

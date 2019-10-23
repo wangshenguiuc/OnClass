@@ -4,13 +4,19 @@ OnClass is a python package for single-cell cell type annotation. It uses the Ce
 
 OnClass package is still under development. A preprint of OnClass paper is on `bioRxiv <https://www.biorxiv.org/content/10.1101/810234v1>`__
 
-Currently, OnClass supports 1) annotate cell type, 2) integrating different single-cell datasets based on the Cell Ontology, and 3) marker genes identification
+Currently, OnClass supports 
+
+1) annotate cell type
+
+2) integrating different single-cell datasets based on the Cell Ontology
+
+3) marker genes identification
 
 Here is the flowchart of OnClass
 
 .. raw:: html
 
-	<img src="https://github.com/wangshenguiuc/OnClass/blob/master/img/flowchart.png" style="width: 450px">
+	<img src="https://github.com/wangshenguiuc/OnClass/blob/master/img/flowchart.png" style="width: 100px">
 
 OnClass is a joint work by `Altman lab <https://helix.stanford.edu/>`__ at stanford and `czbiohub <https://www.czbiohub.org/>`__. 
 
