@@ -551,8 +551,8 @@ def read_ontology(l2i, DATA_DIR = '../../OnClass_data/'):
 			net[n][n1] = 1
 	return net
 
-def emb_onotlogy(i2l, dim=20, mi=0):
-	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi)
+def emb_ontology(i2l, dim=20, mi=0, DATA_DIR = '../../OnClass_data/'):
+	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi, DATA_DIR= DATA_DIR)
 	i2emb = np.zeros((len(i2l),dim))
 	nl = len(i2l)
 	for i in range(nl):
@@ -620,7 +620,7 @@ def create_labels(train_Y, combine_unseen = False, DATA_DIR = '../../OnClass_dat
 		i2l[nl] = col
 	train_Y = [l2i[y] for y in train_Y]
 	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
-	onto_net = read_ontology(l2i)
+	onto_net = read_ontology(l2i, DATA_DIR=DATA_DIR)
 	return unseen_l, l2i, i2l, train_X2Y, onto_net
 
 def extract_data_based_on_class(feats, labels, sel_labels):
@@ -712,7 +712,7 @@ def SplitTrainTest(all_X, all_Y, iter=10, nfold_cls = 0.3, nfold_sample = 0.2, n
 
 def ParseCLOnto(train_Y, co_dim=1000, co_mi=3, combine_unseen = False, DATA_DIR = '../../OnClass_data/'):#
 	unseen_l, l2i, i2l, train_X2Y, onto_net = create_labels(train_Y, combine_unseen = combine_unseen, DATA_DIR=DATA_DIR)
-	Y_emb, cls2cls = emb_onotlogy(i2l, dim = co_dim, mi=co_mi, DATA_DIR=DATA_DIR)
+	Y_emb, cls2cls = emb_ontology(i2l, dim = co_dim, mi=co_mi, DATA_DIR=DATA_DIR)
 	return unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls
 
 def MapLabel2CL(test_Y, l2i):
