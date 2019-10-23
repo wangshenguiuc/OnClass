@@ -4,15 +4,12 @@ import numpy as np
 import os
 from scipy import sparse
 from sklearn.metrics import silhouette_samples, roc_curve
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
-sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
-sys.path.append(repo_dir)
 from OnClass.utils import *
 from OnClass.OnClassPred import OnClassPred
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
 
-DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+DATA_DIR = '../../../OnClass_data/'
 FIG_DIR = DATA_DIR + '/figures/26-datasets/'
 if not os.path.exists(FIG_DIR):
 	os.makedirs(FIG_DIR)

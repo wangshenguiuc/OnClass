@@ -1,18 +1,15 @@
-from sklearn.cross_decomposition import CCA
 from sklearn import metrics
-from process import load_names
 from time import time
 import numpy as np
 from collections import Counter
 import os
+import sys
+import numpy as np
+import os
+from OnClass.utils import *
+from OnClass.OnClassPred import OnClassPred
+from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/'
-sys.path.append(repo_dir)
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/OurClassifier/DeepCCA')
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/')
-os.chdir(repo_dir)
-from utils import *
-from NN import BilinearNN
 
 def ct2bin(n):
 	if n<200:
@@ -23,18 +20,16 @@ def ct2bin(n):
 		return 2
 	return 3
 
-input_dir = '../../OnClass_data/marker_gene/'
-fig_dir = '../../OnClass_data/figures/marker_gene/'
+input_dir = '../../OnClass_data/marker_genes/'
+fig_dir = '../../OnClass_data/figures/marker_genes/'
 if not os.path.exists(fig_dir):
     os.makedirs(fig_dir)
 
-data_file = 'tabula-muris-senis-droplet-raw-counts-official-annotations-missing-lung-and-marrow.h5ad'
-
 data_file = '../../OnClass_data/raw_data/tabula-muris-senis-droplets'
-train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
+train_X, train_Y_str, genes_list = read_data(filename=data_file, DATA_DIR=DATA_DIR, return_genes=True)
 train_X = np.log1p(train_X.todense()+1)
 tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
-unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str)
+unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str, DATA_DIR=DATA_DIR)
 train_Y = MapLabel2CL(train_Y_str, l2i)
 genes = genes_list[datanames[0]]
 g2i = {}

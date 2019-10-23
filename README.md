@@ -1,2 +1,2 @@
 # OnClass
-please see the document of OnClass at https://readthedocs.org/projects/onclass/
+please see the document of OnClass at https://onclass.readthedocs.io/en/latest/

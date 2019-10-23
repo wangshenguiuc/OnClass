@@ -4,9 +4,6 @@ import numpy as np
 import os
 from scipy import sparse
 import sys
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
-sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
-sys.path.append(repo_dir)
 from OnClass.utils import *
 from OnClass.OnClassPred import OnClassPred
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
@@ -16,7 +13,7 @@ if not os.path.exists(OUTPUT_DIR):
 	os.makedirs(OUTPUT_DIR)
 	
 ## read TMS and 26-datasets data
-DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+DATA_DIR = '../../../OnClass_data/'
 data_file = DATA_DIR + '/raw_data/tabula-muris-senis-facs'
 train_X, train_Y_str, genes_list = read_data(filename=data_file, DATA_DIR = DATA_DIR, return_genes=True)
 tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]

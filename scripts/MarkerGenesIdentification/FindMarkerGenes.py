@@ -1,14 +1,11 @@
 import sys
 import numpy as np
 import os
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
-sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
-sys.path.append(repo_dir)
 from OnClass.utils import *
 from OnClass.OnClassPred import OnClassPred
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+DATA_DIR = '../../../OnClass_data/'
 OUTPUT_DIR = DATA_DIR + '/marker_genes/'
 if not os.path.exists(OUTPUT_DIR):
 	os.makedirs(OUTPUT_DIR)

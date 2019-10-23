@@ -1,12 +1,9 @@
 import sys
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
-sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
-sys.path.append(repo_dir)
 from OnClass.utils import *
 from OnClass.OnClassPred import OnClassPred
 
 ## read TMS FACS data
-DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+DATA_DIR = '../../../OnClass_data/'
 data_file = DATA_DIR + 'raw_data/tabula-muris-senis-facs'
 X, Y = read_data(filename=data_file, DATA_DIR = DATA_DIR)
 

@@ -1,28 +1,26 @@
-import sys
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/tools/single_cell/scanorama/bin/'
-sys.path.append(repo_dir)
-from sklearn.cross_decomposition import CCA
-from sklearn import metrics
 from scipy import sparse
-from process import load_names
 from scanorama import *
 from time import time
 import numpy as np
 from collections import Counter
 import os
 from sklearn.metrics import roc_auc_score, roc_curve
+from time import time
+import numpy as np
+from collections import Counter
+import os
+import sys
+import numpy as np
+import os
+from OnClass.utils import *
+from OnClass.OnClassPred import OnClassPred
+from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/'
-sys.path.append(repo_dir)
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/PredictOtherDatasets/')
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/')
-os.chdir(repo_dir)
-from utils import *
-from scanorama_utils import data_names_all
-
-output_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/result/SingleCell/SCTyping/Predict_features/'
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+DATA_DIR = '../../../OnClass_data/'
+OUTPUT_DIR = DATA_DIR + '/marker_genes/'
+if not os.path.exists(OUTPUT_DIR):
+	os.makedirs(OUTPUT_DIR)
+	
 
 
 datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True)
@@ -40,7 +38,7 @@ keywords = ['b_cells','infected','hsc','cd56_nk','cd4_t_helper','regulatory_t','
 tp2genes_base = read_type2genes(g2i)
 
 tp2genes_our = {}
-fin = open(output_dir+'marker_genes.txt')
+fin = open(OUTPUT_DIR+'marker_genes.txt')
 for line in fin:
 	w = line.strip().split('\t')
 	tp2genes_our[w[0]] = w[1:]
@@ -106,7 +104,7 @@ for i in range(len(onto_ids)):
 	plt.title(keywords[i] )
 	plt.legend(loc="lower right",fontsize=30,frameon=False)
 	plt.tight_layout()
-	plt.savefig(output_dir+keywords[i]+'_auroc.pdf')#
+	plt.savefig(OUTPUT_DIR+keywords[i]+'_auroc.pdf')#
 
 our = []
 base = []
@@ -169,4 +167,4 @@ plt.ylabel('AUROC')
 plt.legend(frameon=False)
 plt.ylim([0.5, 1.0])
 plt.tight_layout()
-plt.savefig(output_dir+'predict_26_bar.pdf')
+plt.savefig(OUTPUT_DIR+'predict_26_bar.pdf')
