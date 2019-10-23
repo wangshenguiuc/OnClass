@@ -11,9 +11,9 @@ from OnClass.utils import *
 from OnClass.OnClassPred import OnClassPred
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-output_dir = '../../OnClass_data/26-datasets/'
-if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+OUTPUT_DIR = '../../OnClass_data/26-datasets/'
+if not os.path.exists(OUTPUT_DIR):
+	os.makedirs(OUTPUT_DIR)
 	
 ## read TMS and 26-datasets data
 DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
@@ -46,4 +46,4 @@ OnClass_obj.train(train_X_corrected, train_Y, Y_emb, log_transform=False)
 test_Y_pred = OnClass_obj.predict(test_X_corrected, log_transform=False)
 
 ## save the prediction matrix, nsample (number of samples in 26-datasets) by nlabels
-np.save(output_dir + '26_datasets_predicted_score_matrix.npy', test_Y_pred)
+np.save(OUTPUT_DIR + '26_datasets_predicted_score_matrix.npy', test_Y_pred)

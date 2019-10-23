@@ -261,7 +261,7 @@ def read_data(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reanno
 	else:
 		tech = ''
 	if not os.path.isfile(filename):
-		sys.exit('%s not exists' % filename)
+		sys.exit('%s not exist' % filename)
 	x = read_h5ad(filename)
 	ncell = np.shape(x.X)[0]
 	dataset = x.X

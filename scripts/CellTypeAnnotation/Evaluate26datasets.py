@@ -3,27 +3,32 @@ from scanorama import *
 import numpy as np
 import os
 from scipy import sparse
-from utils import *
-import OnClassPred
-from other_datasets_utils import my_assemble, data_names_all, load_names 
 from sklearn.metrics import roc_auc_score, roc_curve
+repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/'
+sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
+sys.path.append(repo_dir)
+from OnClass.utils import *
+from OnClass.OnClassPred import OnClassPred
+from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
 
-input_dir = '../../OnClass_data/26-datasets/'
-output_dir = '../../OnClass_data/figures/26-datasets/'
-if not os.path.exists(output_dir):
-	os.makedirs(output_dir)
+DATA_DIR = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/'
+INPUT_DIR = DATA_DIR + '/26-datasets/'
+OUTPUT_DIR = DATA_DIR + '/figures/26-datasets/'
+if not os.path.exists(OUTPUT_DIR):
+	os.makedirs(OUTPUT_DIR)
+
 
 #read data
-co2name, name2co = get_ontology_name()
-data_file = '../../OnClass_data/raw_data/tabula-muris-senis-facs'
-train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
-unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str)
+co2name, name2co = get_ontology_name(DATA_DIR=DATA_DIR)
+data_file = DATA_DIR + '/raw_data/tabula-muris-senis-facs'
+train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True,DATA_DIR=DATA_DIR)
+unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str,DATA_DIR=DATA_DIR)
 train_Y = MapLabel2CL(train_Y_str, l2i)
-datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True)
+datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True,DATA_DIR=DATA_DIR)
 exist_Y = np.unique(train_Y)
 
 #read pre-computed prediction score. Please run Annot26datasets.py first to generate this score matrix.
-test_Y_pred = np.load(input_dir + '26_datasets_predicted_score_matrix.npy')
+test_Y_pred = np.load(INPUT_DIR + '26_datasets_predicted_score_matrix.npy')
 
 # calculate AUROC for each cell type
 onto_ids, keywords, keyword2cname = map_26_datasets_cell2cid(use_detailed=False)
@@ -91,7 +96,7 @@ for onto_id, keyword in zip(onto_ids,keywords):
 	plt.title(keyword2cname[keyword],fontsize=40)
 	plt.legend(loc="lower right",fontsize=30,frameon=False)
 	plt.tight_layout()
-	plt.savefig(output_dir+keyword+'_auroc.pdf')#
+	plt.savefig(OUTPUT_DIR+keyword+'_auroc.pdf')#
 
 # plot bar plot
 mean_auc = np.array(mean_auc)
@@ -121,4 +126,4 @@ ax.spines['top'].set_visible(False)
 plt.ylim([0.5, 1.05])
 plt.yticks([0.5, 0.6,0.7,0.8,0.9,1.])
 plt.tight_layout()
-plt.savefig(output_dir+'bar.pdf')
+plt.savefig(OUTPUT_DIR+'bar.pdf')
