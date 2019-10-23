@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 from sklearn.preprocessing import normalize
-from OnClass.BilinearNN import BilinearNN
+from BilinearNN import BilinearNN
 
 class OnClassPred:
 	def __init__(self):

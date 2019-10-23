@@ -58,7 +58,7 @@ def map_26_datasets_cell2cid(use_detailed=False):
 	keyword2cname['memory_t'] = 'Memory T'
 	return onto_ids, keywords, keyword2cname
 
-def read_type2genes(g2i, file='../../OnClass_data/marker_genes/gene_marker_tms.txt'):
+def read_type2genes(g2i, DATA_DIR = '../../OnClass_data/'):
 	co2name, name2co = get_ontology_name()
 
 	c2cnew = {}
@@ -68,7 +68,7 @@ def read_type2genes(g2i, file='../../OnClass_data/marker_genes/gene_marker_tms.t
 
 	c2cnew['mature NK T cell'] = 'mature NK T cell'.lower()
 	c2cnew['cd8+ t cell'] = 'CD8-positive, alpha-beta cytotoxic T cell'.lower()
-	fin = open('../../OnClass_data/marker_genes/gene_marker_tms.txt')
+	fin = open(DATA_DIR + 'marker_genes/gene_marker_tms.txt')
 	fin.readline()
 	tp2genes = {}
 	unfound = set()
@@ -453,8 +453,8 @@ def evaluate(test_Y_pred, train_Y, test_Y, unseen_l, test_Y_pred_vec = None, com
 	return res_v
 
 
-def get_ontology_name():
-	fin = open('../../OnClass_data/cell_ontology/cl.obo')
+def get_ontology_name(DATA_DIR = '../../OnClass_data/'):
+	fin = open(DATA_DIR + 'cell_ontology/cl.obo')
 	co2name = {}
 	name2co = {}
 	tag_is_syn = {}
@@ -473,8 +473,8 @@ def get_ontology_name():
 	fin.close()
 	return co2name, name2co
 
-def cal_ontology_emb(dim=20, mi=0):
-	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
+def cal_ontology_emb(dim=20, mi=0, DATA_DIR = '../../OnClass_data/'):
+	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
 	lset = set()
 	s2p = {}
 	for line in fin:
@@ -534,10 +534,10 @@ def get_onotlogy_parents(GO_net, g):
 			term_valid.add(GO)
 	return term_valid
 
-def read_ontology(l2i):
+def read_ontology(l2i, DATA_DIR = '../../OnClass_data/'):
 	nl = len(l2i)
 	net = collections.defaultdict(dict)
-	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
+	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
 	for line in fin:
 		s,p = line.strip().split('\t')
 		si = l2i[s]
@@ -593,8 +593,8 @@ def ConvertLabels(labels, ncls=-1):
 		return vec
 
 
-def create_labels(train_Y, combine_unseen = False):
-	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
+def create_labels(train_Y, combine_unseen = False, DATA_DIR = '../../OnClass_data/'):
+	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
 	lset = set()
 	for line in fin:
 		s,p = line.strip().split('\t')
@@ -661,10 +661,10 @@ def ImputeUnseenCls(y_vec, y_raw, cls2cls_sim, nunseen, knn=1, combine_unseen=Fa
 	#y_mat = ConvertLabels(y_vec, ncls=np.shape(cls2cls_sim)[0])
 	return y_mat
 
-def filter_no_label_cells(X, Y):
+def filter_no_label_cells(X, Y, DATA_DIR = '../../OnClass_data/'):
 	if np.unique(Y)[0].startswith('CL'):
 		return X, Y
-	fin = open('../../OnClass_data/cell_ontology/cell_ontology_id.txt')
+	fin = open(DATA_DIR + 'cell_ontology/cell_ontology_id.txt')
 	annot2id = {}
 	remove_ind = []
 	for line in fin:
@@ -710,9 +710,9 @@ def SplitTrainTest(all_X, all_Y, iter=10, nfold_cls = 0.3, nfold_sample = 0.2, n
 
 	return train_X, train_Y, test_X, test_Y
 
-def ParseCLOnto(train_Y, co_dim=1000, co_mi=3, combine_unseen = False):#
-	unseen_l, l2i, i2l, train_X2Y, onto_net = create_labels(train_Y, combine_unseen = combine_unseen)
-	Y_emb, cls2cls = emb_onotlogy(i2l, dim = co_dim, mi=co_mi)
+def ParseCLOnto(train_Y, co_dim=1000, co_mi=3, combine_unseen = False, DATA_DIR = '../../OnClass_data/'):#
+	unseen_l, l2i, i2l, train_X2Y, onto_net = create_labels(train_Y, combine_unseen = combine_unseen, DATA_DIR=DATA_DIR)
+	Y_emb, cls2cls = emb_onotlogy(i2l, dim = co_dim, mi=co_mi, DATA_DIR=DATA_DIR)
 	return unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls
 
 def MapLabel2CL(test_Y, l2i):
