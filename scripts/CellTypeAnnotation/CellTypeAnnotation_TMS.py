@@ -20,7 +20,7 @@ print ('number of training cells:%d\nnumber of test cells:%d\nnumber of classes 
 
 ## train and predict
 OnClass_obj = OnClassPred()
-OnClass_obj.train(train_X, train_Y, Y_emb, max_iter=1, nhidden=[2])
+OnClass_obj.train(train_X, train_Y, Y_emb)
 test_Y_pred = OnClass_obj.predict(test_X)
 
 ## evaluate
