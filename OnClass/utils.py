@@ -736,8 +736,12 @@ def SplitTrainTest(all_X, all_Y, iter=10, nfold_cls = 0.3, nfold_sample = 0.2, n
 	train_cls = np.array(train_cls)
 	train_X, train_Y = extract_data_based_on_class(all_X, all_Y, train_cls)
 	test_X, test_Y = extract_data_based_on_class(all_X, all_Y, test_cls)
+	print (np.shape(test_X))
+	print (np.shape(train_X))
 	train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
  	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=iter)
+	print (np.shape(train_X_train))
+	print (np.shape(train_X_test))
 	test_X = sparse.vstack((test_X, train_X_test))
 	test_Y = np.concatenate((test_Y, train_Y_test))
 	train_X = train_X_train
