@@ -82,7 +82,7 @@ class BilinearNN:
 	def one_hot_matrix(self, labels, C):
 		C = tf.constant(C, name = "C")
 		one_hot_matrix = tf.one_hot(labels, C, axis = 0)
-		sess_tmp = tf.self.session()
+		sess_tmp = tf.session()
 		one_hot = sess_tmp.run(one_hot_matrix)
 		sess_tmp.close()
 		return one_hot.T
