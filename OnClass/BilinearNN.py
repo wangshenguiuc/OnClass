@@ -82,9 +82,9 @@ class BilinearNN:
 	def one_hot_matrix(self, labels, C):
 		C = tf.constant(C, name = "C")
 		one_hot_matrix = tf.one_hot(labels, C, axis = 0)
-		self.sess = tf.self.session()
-		one_hot = self.sess.run(one_hot_matrix)
-		self.sess.close()
+		sess_tmp = tf.self.session()
+		one_hot = sess_tmp.run(one_hot_matrix)
+		sess_tmp.close()
 		return one_hot.T
 
 	def predict_score(self, X, Y_emb):
