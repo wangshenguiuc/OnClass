@@ -1,88 +1,33 @@
 import sys
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/tools/single_cell/scanorama/bin/'
-sys.path.append(repo_dir)
-from sklearn.decomposition import PCA
-from sklearn import metrics
-from process import load_names
 from scanorama import *
-from time import time
 import numpy as np
-from collections import Counter
 import os
-from sklearn.preprocessing import normalize
-from sklearn.metrics import roc_auc_score, roc_curve
-repo_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/'
-sys.path.append(repo_dir)
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/OurClassifier/DeepCCA')
-sys.path.append(repo_dir+'src/task/SCTypeClassifier/')
-os.chdir(repo_dir)
+from scipy import sparse
 from utils import *
-from NN import BilinearNN
-from scanorama_utils import data_names_all
+import OnClassPred
+from other_datasets_utils import my_assemble, data_names_all, load_names 
+from sklearn.metrics import roc_auc_score, roc_curve
 
-output_dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/result/SingleCell/SCTyping/Integrate_all_datasets/'
+input_dir = '../../OnClass_data/26-datasets/'
+output_dir = '../../OnClass_data/figures/26-datasets/'
 if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+	os.makedirs(output_dir)
 
+#read data
 co2name, name2co = get_ontology_name()
-data_file = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/tabula_muris_senis/NewAnnotation_20190912/tabula-muris-senis-facs-reannotated-except-for-marrow.h5ad'
-
-test_Y_pred = np.load('0_126_datasets_predict_score.npy')
-print (np.shape(test_Y_pred))
-
-
-datanames, genes_list, labels, datasets, types, month_labels = read_data_and_split_by_months(filename=data_file,nsample=300000)
-train_X, train_Y = extract_data(datanames, datasets, labels)
-unseen_l, l2i, i2l, train_X2Y, onto_net = create_labels(train_Y, combine_unseen = 0)
-
-
-nseen = len(l2i) - len(unseen_l)
-ratio = len(l2i) * 1. / nseen
-
-test_Y_pred[:,:nseen] = normalize(test_Y_pred[:,:nseen],norm='l1',axis=1)
-test_Y_pred[:,nseen:] = normalize(test_Y_pred[:,nseen:],norm='l1',axis=1) * ratio
-
-test_Y_vec = np.argmax(test_Y_pred, axis=1)
-
+data_file = '../../OnClass_data/raw_data/tabula-muris-senis-facs'
+train_X, train_Y_str, genes_list = read_data(filename=data_file, return_genes=True)
+unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str)
+train_Y = MapLabel2CL(train_Y_str, l2i)
 datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True)
 exist_Y = np.unique(train_Y)
 
+#read pre-computed prediction score. Please run Annot26datasets.py first to generate this score matrix.
+test_Y_pred = np.load(input_dir + '26_datasets_predicted_score_matrix.npy')
+test_Y_vec = np.argmax(test_Y_pred, axis=1)
+
+# calculate AUROC for each cell type
 onto_ids, keywords, keyword2cname = map_26_datasets_cell2cid(use_detailed=False)
-#'CL:0000037','hsc',
-#onto_ids = ['CL:0000236','CL:0000235','CL:0002338','CL:0000492','CL:0000815','CL:0000910','CL:0000794','CL:2000001']
-#keywords = ['b_cells','infected','cd56_nk','cd4_t_helper','regulatory_t','cytotoxic_t','cd14_monocytes','pbmc']
-
-k_ind = []
-k2i = {}
-for i,k in enumerate(keywords):
-	k2i[k] = len(k_ind)
-	k_ind.append(l2i[onto_ids[i]])
-k_ind = np.array(k_ind)
-print (k_ind)
-print (k2i)
-st_ind = 0
-labels = []
-pred = []
-for i,dnames_raw in enumerate(data_names_all):
-	dnames = dnames_raw.split('/')[-1]
-	ed_ind = st_ind + np.shape(datasets[i])[0]
-	for keyword in keywords:
-		if dnames.startswith(keyword):
-			labels.extend(np.ones(ed_ind - st_ind) * k2i[keyword])
-			pred.extend(test_Y_pred[st_ind:ed_ind,k_ind])
-			break
-	st_ind = ed_ind
-	#print (len(labels))
-labels = np.array(labels)
-print (np.unique(labels))
-pred = np.array(pred)
-pred = np.argmax(pred, axis=1)
-print (np.unique(pred))
-print (len(labels))
-print (pred)
-print (labels)
-print (metrics.accuracy_score(pred, labels))
-
 
 ctype = []
 mean_auc = []
@@ -96,8 +41,6 @@ for onto_id, keyword in zip(onto_ids,keywords):
 	for i,dnames_raw in enumerate(data_names_all):
 		dnames = dnames_raw.split('/')[-1]
 		ed_ind = st_ind + np.shape(datasets[i])[0]
-		#if '10x' not in dnames_raw:
-		#	continue
 		if dnames.startswith(keyword):
 			labels.extend(np.ones(ed_ind - st_ind))
 		else:
@@ -151,6 +94,7 @@ for onto_id, keyword in zip(onto_ids,keywords):
 	plt.tight_layout()
 	plt.savefig(output_dir+keyword+'_auroc.pdf')#
 
+# plot bar plot
 mean_auc = np.array(mean_auc)
 ctype = np.array(ctype)
 ind = np.argsort(mean_auc*-1)

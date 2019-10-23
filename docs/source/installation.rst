@@ -17,7 +17,8 @@ using pip. To install OnClass using pip, run:
 Development Version
 ~~~~~~~~~
 The lastest verion of OnClass is on `GitHub
-<https://github.com/wangshenguiuc/OnClass/>`
+<https://github.com/wangshenguiuc/OnClass/>`__
+
 .. code:: bash
 
     git clone https://github.com/wangshenguiuc/OnClass.git

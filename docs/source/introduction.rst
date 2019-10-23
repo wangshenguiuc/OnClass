@@ -7,7 +7,9 @@ OnClass package is still under development. A preprint of OnClass paper is on `b
 Currently, OnClass supports 1) annotate cell type, 2) integrating different single-cell datasets based on the Cell Ontology, and 3) marker genes identification
 
 Here is the flowchart of OnClass
+
 .. raw:: html
+
 	<img src="https://github.com/wangshenguiuc/OnClass/img/flowchart.png" style="width: 450px">
 
 OnClass is a joint work by `Altman lab <https://helix.stanford.edu/>`__ at stanford and `czbiohub <https://www.czbiohub.org/>`__. 

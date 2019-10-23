@@ -5,6 +5,19 @@ Here, we provide a concise and quick overview of how to use OnClass
 Cell type annotation
 ----------------
 
-Import Scanpy as::
+A example script for cell type annotation is at our `GitHub <https://www.biorxiv.org/content/10.1101/810234v1>`
 
-    import scanpy as sc
+Import OnClass as::
+
+    import OnClass
+	
+
+
+Read the single cell data as:
+    
+	data_file = '../../OnClass_data/raw_data/tabula-muris-senis-facs'
+	## read data
+	X, Y = read_data(filename=data_file)
+	
+where `X` is a sample by gene gene expression matrix, `Y` is a label vector for each sample. The labels in `Y` should use the Cell Ontology Id (e.g., CL:0000123). The data (e.g., tabula muris raw gene expression matrix, the Cell Ontology obo file) can be downloaded from FigShare. Please change the path of data_file in the script.
+

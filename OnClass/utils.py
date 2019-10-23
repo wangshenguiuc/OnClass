@@ -39,18 +39,6 @@ plt.rc('ytick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
 plt.rc('legend', fontsize=MEDIUM_SIZE)	# legend fontsize
 plt.rc('figure', titlesize=MEDIUM_SIZE)  # fontsize of the figure title
 
-'''
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/68k_pbmc',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/b_cells',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/cd14_monocytes',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/cd4_t_helper',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/cd56_nk',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/cytotoxic_t',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/memory_t',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/10x/regulatory_t',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/pbmc_kang',
-'/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/Scanorama/data/pbmc/pbmc_10X']
-'''
 def map_26_datasets_cell2cid(use_detailed=False):
 	if not use_detailed:
 		onto_ids = ['CL:0000236','CL:0000235','CL:0000037','CL:0002338','CL:0000492','CL:0000815','CL:0000910','CL:0001054','CL:2000001','CL:0000813']#CL:0000910,0000815
@@ -70,7 +58,7 @@ def map_26_datasets_cell2cid(use_detailed=False):
 	keyword2cname['memory_t'] = 'Memory T'
 	return onto_ids, keywords, keyword2cname
 
-def read_type2genes(g2i, file='/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/tabula_muris_senis/gene_marker/gene_marker_tms.txt'):
+def read_type2genes(g2i, file='../../OnClass_data/marker_genes/gene_marker_tms.txt'):
 	co2name, name2co = get_ontology_name()
 
 	c2cnew = {}
@@ -80,7 +68,7 @@ def read_type2genes(g2i, file='/oak/stanford/groups/rbaltman/swang91/Sheng_repo/
 
 	c2cnew['mature NK T cell'] = 'mature NK T cell'.lower()
 	c2cnew['cd8+ t cell'] = 'CD8-positive, alpha-beta cytotoxic T cell'.lower()
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/tabula_muris_senis/gene_marker/gene_marker_tms.txt')
+	fin = open('../../OnClass_data/marker_genes/gene_marker_tms.txt')
 	fin.readline()
 	tp2genes = {}
 	unfound = set()
@@ -261,32 +249,6 @@ def parse_para(para_set):
 	cellmi = int(cellmi)
 	comi = int(comi)
 	return method_name,split_method,combine_unseen,cell_dim,co_dim,premi,cellmi,comi
-
-def read_data_old(months=['21m','3m'],techs=['droplet'],seed=1,nsample=1000000,dlevel='cell_ontology_id',
-dir = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/tabula_muris_senis/2_raw_data_processed/age_method/'):
-	np.random.seed(seed)
-	datanames = []
-	genes_list = {}
-	labels = {}
-	datasets = {}
-	types = {}
-	month_labels = {}
-	for m in months:
-		for tech in techs:
-			dataname = tech+m
-			fname = dir + dataname + '.h5ad'
-			if not os.path.isfile(fname):
-				continue
-			x = read_h5ad(fname)
-			ncell = np.shape(x.X)[0]
-			index = np.random.choice(ncell,min(nsample,ncell),replace=False)
-			datasets[dataname] = x.X[index,:]
-			datanames.append(dataname)
-			genes_list[dataname] = x.var.index
-			labels[dataname] = np.array(x.obs[dlevel].tolist())[index]
-			month_labels[dataname] = np.full(len(x.obs[dlevel].tolist()), len(index))
-			types[dataname] = Counter(np.array(x.obs[dlevel].tolist())[index])
-	return datanames, genes_list, labels, datasets, types, month_labels
 
 
 def read_data(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False):
@@ -492,7 +454,7 @@ def evaluate(test_Y_pred, train_Y, test_Y, unseen_l, test_Y_pred_vec = None, com
 
 
 def get_ontology_name():
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/cl.obo')
+	fin = open('../../OnClass_data/cell_ontology/cl.obo')
 	co2name = {}
 	name2co = {}
 	tag_is_syn = {}
@@ -512,7 +474,7 @@ def get_ontology_name():
 	return co2name, name2co
 
 def cal_ontology_emb(dim=20, mi=0):
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/cl.ontology')
+	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
 	lset = set()
 	s2p = {}
 	for line in fin:
@@ -575,7 +537,7 @@ def get_onotlogy_parents(GO_net, g):
 def read_ontology(l2i):
 	nl = len(l2i)
 	net = collections.defaultdict(dict)
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/cl.ontology')
+	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
 	for line in fin:
 		s,p = line.strip().split('\t')
 		si = l2i[s]
@@ -632,7 +594,7 @@ def ConvertLabels(labels, ncls=-1):
 
 
 def create_labels(train_Y, combine_unseen = False):
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/cl.ontology')
+	fin = open('../../OnClass_data/cell_ontology/cl.ontology')
 	lset = set()
 	for line in fin:
 		s,p = line.strip().split('\t')
@@ -702,7 +664,7 @@ def ImputeUnseenCls(y_vec, y_raw, cls2cls_sim, nunseen, knn=1, combine_unseen=Fa
 def filter_no_label_cells(X, Y):
 	if np.unique(Y)[0].startswith('CL'):
 		return X, Y
-	fin = open('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/data/SingleCell/tabula_muris_senis/2_raw_data_processed/age_method/cell_ontology_id.txt')
+	fin = open('../../OnClass_data/cell_ontology/cell_ontology_id.txt')
 	annot2id = {}
 	remove_ind = []
 	for line in fin:
@@ -736,12 +698,8 @@ def SplitTrainTest(all_X, all_Y, iter=10, nfold_cls = 0.3, nfold_sample = 0.2, n
 	train_cls = np.array(train_cls)
 	train_X, train_Y = extract_data_based_on_class(all_X, all_Y, train_cls)
 	test_X, test_Y = extract_data_based_on_class(all_X, all_Y, test_cls)
-	print (np.shape(test_X))
-	print (np.shape(train_X))
 	train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
  	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=iter)
-	print (np.shape(train_X_train))
-	print (np.shape(train_X_test))
 	test_X = sparse.vstack((test_X, train_X_test))
 	test_Y = np.concatenate((test_Y, train_Y_test))
 	train_X = train_X_train
