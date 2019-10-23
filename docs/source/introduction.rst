@@ -17,9 +17,12 @@ Currently, OnClass supports
 
 1) annotate cell type
 
+
 2) integrating different single-cell datasets based on the Cell Ontology
 
+
 3) marker genes identification
+
 
 Here is the flowchart of OnClass
 
