@@ -58,8 +58,8 @@ class BilinearNN:
 		self.W = {}
 		self.B = {}
 		for i in range(1,self.nlayer):
-			self.W[i] = tf.get_variable("W"+str(i), [self.nhidden[i-1], self.nhidden[i]], initializer = w_init, dtype=tf.float64)
-			self.B[i] = tf.get_variable("B"+str(i), [1, self.nhidden[i]], initializer = b_init, dtype=tf.float64)
+			self.W[i] = tf.compat.v1.get_variable("W"+str(i), [self.nhidden[i-1], self.nhidden[i]], initializer = w_init, dtype=tf.float64)
+			self.B[i] = tf.compat.v1.get_variable("B"+str(i), [1, self.nhidden[i]], initializer = b_init, dtype=tf.float64)
 		#self.B = tf.get_variable("B", [1, 1], initializer = tf.zeros_initializer(), dtype=tf.float64)
 
 	def __build_loss(self):
@@ -134,10 +134,10 @@ class BilinearNN:
 	def optimize(self):
 		cost_val = []
 		global_step = tf.Variable(0, trainable=False)
-		decay_lr = tf.train.exponential_decay(self.lr, global_step, 1000, 0.95, staircase=True)
+		decay_lr = tf.compat.v1.train.exponential_decay(self.lr, global_step, 1000, 0.95, staircase=True)
 
 		train_op =  tf.compat.v1.train.AdamOptimizer(learning_rate=decay_lr).minimize(self.loss)
-		self.sess = tf.compat.v1.self.session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
+		self.sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
 
 		self.sess.run(tf.compat.v1.global_variables_initializer())
 
