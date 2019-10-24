@@ -28,5 +28,5 @@ Here is the flowchart of OnClass
 
 OnClass is a joint work by `Altman lab <https://helix.stanford.edu/>`__ at stanford and `czbiohub <https://www.czbiohub.org/>`__. 
 
-For questions about the software, please contact `Sheng Wang <http://web.stanford.edu/~swang91/>` at swang91@stanford.edu. 
+For questions about the software, please contact `Sheng Wang <http://web.stanford.edu/~swang91/>`__ at swang91@stanford.edu. 
 
