@@ -118,6 +118,7 @@ def my_assemble(datasets, verbose=VERBOSE, view_match=False, knn=KNN,
 			 sigma=SIGMA, approx=APPROX, alpha=ALPHA, expr_datasets=None,
 			 ds_names=None, batch_size=None,
 			 geosketch=False, geosketch_max=20000, alignments=None, matches=None): # reimplement part of scanorama to return the corrected expression (instead of low-d vectors)
+	#this code is copy and paste from scanorama in order to output the expression. Please check their tool and cite their paper if you used this function.
 	if len(datasets) == 1:
 		return datasets
 

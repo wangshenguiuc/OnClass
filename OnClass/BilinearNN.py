@@ -13,7 +13,10 @@ class BilinearNN:
 		#
 		return
 
-	def train(self, train_X, train_Y, Y_emb, nseen,  nhidden=[100], max_iter=500, minibatch_size=32, lr = 0.0001, l2=0.01):
+	def train(self, train_X, train_Y, Y_emb, nseen,  nhidden=[100], max_iter=500, save_model = None, minibatch_size=32, lr = 0.0001, l2=0.01, use_pretrain= None):
+		tf.reset_default_graph()
+		self.save_model = save_model
+		self.use_pretrain = use_pretrain
 		self.train_X = train_X
 		self.train_Y = self.one_hot_matrix(train_Y, nseen)
 		self.minibatch_size = minibatch_size
@@ -133,24 +136,32 @@ class BilinearNN:
 
 	def optimize(self):
 		cost_val = []
+
 		global_step = tf.Variable(0, trainable=False)
 		decay_lr = tf.compat.v1.train.exponential_decay(self.lr, global_step, 1000, 0.95, staircase=True)
 
 		train_op =  tf.compat.v1.train.AdamOptimizer(learning_rate=decay_lr).minimize(self.loss)
+		if self.save_model is not None and self.use_pretrain is None:
+			saver = tf.train.Saver()
+		if self.use_pretrain is not None:
+			saver = tf.train.Saver()
 		self.sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
-
-		self.sess.run(tf.compat.v1.global_variables_initializer())
-
-		for epoch in range(self.max_iter):
-			minibatches = self.random_mini_batches(self.train_X, self.train_Y, self.minibatch_size, epoch)
-			epoch_cost = 0.
-			num_minibatches = int(self.nX / self.minibatch_size)
-			for minibatch in minibatches:
-				(minibatch_X, minibatch_Y) = minibatch
-				minibatch_cost, p, label, entropy,  _ = self.sess.run([self.loss, self.p, self.label, self.entropy, train_op], feed_dict={self.mini_train_X: minibatch_X, self.mini_train_Y: minibatch_Y, self.mini_train_Y_emb: self.train_Y_emb})
-				epoch_cost += minibatch_cost
-			if (epoch+1) % 1 == 0:
-				train_acc,_,train_auroc = self.predict_prob(self.train_X, self.train_Y, self.train_Y_emb)
-				print ("Cost after epoch %i: loss:%.3f acc: %.3f auc: %.3f" % (epoch+1, epoch_cost,train_acc,train_auroc))
-				if epoch>20 and train_acc>0.99:
-					break
+		if self.use_pretrain is not None:
+			saver.restore(self.sess, self.use_pretrain)
+		else:
+			self.sess.run(tf.compat.v1.global_variables_initializer())
+			for epoch in range(self.max_iter):
+				minibatches = self.random_mini_batches(self.train_X, self.train_Y, self.minibatch_size, epoch)
+				epoch_cost = 0.
+				num_minibatches = int(self.nX / self.minibatch_size)
+				for minibatch in minibatches:
+					(minibatch_X, minibatch_Y) = minibatch
+					minibatch_cost, p, label, entropy,  _ = self.sess.run([self.loss, self.p, self.label, self.entropy, train_op], feed_dict={self.mini_train_X: minibatch_X, self.mini_train_Y: minibatch_Y, self.mini_train_Y_emb: self.train_Y_emb})
+					epoch_cost += minibatch_cost
+				if (epoch+1) % 1 == 0:
+					train_acc,_,train_auroc = self.predict_prob(self.train_X, self.train_Y, self.train_Y_emb)
+					print ("Cost after epoch %i: loss:%.3f acc: %.3f auc: %.3f" % (epoch+1, epoch_cost,train_acc,train_auroc))
+					if epoch>20 and train_acc>0.99:
+						break
+		if self.save_model is not None and self.use_pretrain is None:
+			saver.save(self.sess, self.save_model)

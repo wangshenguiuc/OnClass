@@ -4,43 +4,42 @@ import numpy as np
 import os
 from scipy import sparse
 import sys
-from OnClass.utils import *
-from OnClass.OnClassPred import OnClassPred
-from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names 
+sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
+#from OnClass.utils import *
+#from OnClass.OnClassModel import OnClassModel
+#from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
+from utils import *
+from OnClassModel import OnClassModel
+from other_datasets_utils import my_assemble, data_names_all, load_names
 
 OUTPUT_DIR = '../../OnClass_data/26-datasets/'
 if not os.path.exists(OUTPUT_DIR):
 	os.makedirs(OUTPUT_DIR)
-	
-## read TMS and 26-datasets data
-DATA_DIR = '../../../OnClass_data/'
-data_file = DATA_DIR + '/raw_data/tabula-muris-senis-facs'
-train_X, train_Y_str, genes_list = read_data(filename=data_file, DATA_DIR = DATA_DIR, return_genes=True)
-tms_genes_list = [x.upper() for x in list(genes_list.values())[0]]
-datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True, DATA_DIR=DATA_DIR)
-datasets.append(train_X)
-genes_list.append(tms_genes_list)
-data_names_all.append('TMS')
 
-## embedd the cell ontology
-unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls = ParseCLOnto(train_Y_str, DATA_DIR=DATA_DIR)
-train_Y = MapLabel2CL(train_Y_str, l2i)
 
-## use Scanorama to correct batch effects
-datasets, genes = merge_datasets(datasets, genes_list)
-datasets_dimred, genes = process_data(datasets, genes, dimred=100)
-expr_datasets = my_assemble(datasets_dimred, ds_names=data_names_all, expr_datasets = datasets, sigma=150)[1]
-expr_corrected = sparse.vstack(expr_datasets)
-expr_corrected = np.log2(expr_corrected.toarray()+1)
+OnClassModel = OnClassModel()
+tp2emb, tp2i, i2tp = OnClassModel.EmbedCellTypes(dim=500,cell_type_network_file='../../../OnClass_data/cell_ontology/cl.ontology', use_pretrain=None,
+write2file = '../../../OnClass_data/pretrain/tp2emb_500')
+print (tp2emb)
 
-## annotate 26-datasets, train on TMS
-ntrain,ngene = np.shape(train_X)
-nsample = np.shape(expr_corrected)[0]
-train_X_corrected= expr_corrected[nsample-ntrain:,:]
-test_X_corrected = expr_corrected[:nsample-ntrain,:]
-OnClass_obj = OnClassPred()
-OnClass_obj.train(train_X_corrected, train_Y, Y_emb, log_transform=False)
-test_Y_pred = OnClass_obj.predict(test_X_corrected, log_transform=False)
+data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
+train_X, train_genes, train_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
 
-## save the prediction matrix, nsample (number of samples in 26-datasets) by nlabels
-np.save(OUTPUT_DIR + '26_datasets_predicted_score_matrix.npy', test_Y_pred)
+print (train_Y)
+
+#OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[2], max_iter=1, use_pretrain = None, save_model =  '../../../OnClass_data/pretrain/BilinearNN')
+#test_label = OnClassModel.predict(train_X, train_genes)
+#print (np.shape(test_label))
+#print (test_label)
+#print ('pretrain finished')
+
+
+OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], log_transform = True, use_pretrain = None, save_model =  '../../../OnClass_data/pretrain/BilinearNN_500')
+test_label = OnClassModel.predict(train_X, train_genes)
+print (test_label)
+
+cell2label = test_label[:,:5]
+labels = [i2tp[i] for i in range(5)]
+test_label = OnClassModel.predict_impute(cell2label, labels, tp2i, tp2emb)
+print (test_label)
+sdd

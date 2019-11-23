@@ -17,7 +17,6 @@ from sklearn import preprocessing
 import umap
 #from src.models.random_walk_with_restart.RandomWalkRestart import RandomWalkRestart, DCA_vector
 from sklearn.model_selection import train_test_split
-
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -30,7 +29,7 @@ import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 MEDIUM_SIZE = 30
 BIGGER_SIZE = 50
-
+MIN_TRANSCRIPTS = 600
 plt.rc('font', size=MEDIUM_SIZE)		  # controls default text sizes
 plt.rc('axes', titlesize=MEDIUM_SIZE)	 # fontsize of the axes title
 plt.rc('axes', labelsize=MEDIUM_SIZE)	# fontsize of the x and y labels
@@ -251,8 +250,217 @@ def parse_para(para_set):
 	return method_name,split_method,combine_unseen,cell_dim,co_dim,premi,cellmi,comi
 
 
-def read_data(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False, DATA_DIR = '../../OnClass_data/'):
-	name2co = get_ontology_name(DATA_DIR = DATA_DIR)[1]
+def load_tab(fname, max_genes=40000):
+	if fname.endswith('.gz'):
+		opener = gzip.open
+	else:
+		opener = open
+
+	with opener(fname, 'r') as f:
+		if fname.endswith('.gz'):
+			header = f.readline().decode('utf-8').rstrip().split('\t')
+		else:
+			header = f.readline().rstrip().split('\t')
+
+		cells = header[1:]
+		X = np.zeros((len(cells), max_genes))
+		genes = []
+		for i, line in enumerate(f):
+			if i > max_genes:
+				break
+			if fname.endswith('.gz'):
+				line = line.decode('utf-8')
+			fields = line.rstrip().split('\t')
+			genes.append(fields[0])
+			X[:, i] = [ float(f) for f in fields[1:] ]
+	return X[:, range(len(genes))], np.array(cells), np.array(genes)
+
+def load_mtx(dname):
+	with open(dname + '/matrix.mtx', 'r') as f:
+		while True:
+			header = f.readline()
+			if not header.startswith('%'):
+				break
+		header = header.rstrip().split()
+		n_genes, n_cells = int(header[0]), int(header[1])
+
+		data, i, j = [], [], []
+		for line in f:
+			fields = line.rstrip().split()
+			data.append(float(fields[2]))
+			i.append(int(fields[1])-1)
+			j.append(int(fields[0])-1)
+		X = csr_matrix((data, (i, j)), shape=(n_cells, n_genes))
+
+	genes = []
+	with open(dname + '/genes.tsv', 'r') as f:
+		for line in f:
+			fields = line.rstrip().split()
+			genes.append(fields[1])
+	assert(len(genes) == n_genes)
+
+	return X, np.array(genes)
+
+def load_h5(fname, genome='mm10'):
+	try:
+		import tables
+	except ImportError:
+		sys.stderr.write('Please install PyTables to read .h5 files: '
+						 'https://www.pytables.org/usersguide/installation.html\n')
+		exit(1)
+
+	# Adapted from scanpy's read_10x_h5() method.
+	with tables.open_file(str(fname), 'r') as f:
+		try:
+			dsets = {}
+			for node in f.walk_nodes('/' + genome, 'Array'):
+				dsets[node.name] = node.read()
+
+			n_genes, n_cells = dsets['shape']
+			data = dsets['data']
+			if dsets['data'].dtype == np.dtype('int32'):
+				data = dsets['data'].view('float32')
+				data[:] = dsets['data']
+
+			X = csr_matrix((data, dsets['indices'], dsets['indptr']),
+						   shape=(n_cells, n_genes))
+			genes = [ gene for gene in dsets['genes'].astype(str) ]
+			assert(len(genes) == n_genes)
+			assert(len(genes) == X.shape[1])
+
+		except tables.NoSuchNodeError:
+			raise Exception('Genome %s does not exist in this file.' % genome)
+		except KeyError:
+			raise Exception('File is missing one or more required datasets.')
+
+	return X, np.array(genes)
+
+
+def process_tab(fname, min_trans=MIN_TRANSCRIPTS):
+	X, cells, genes = load_tab(fname)
+
+	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
+			   if s >= min_trans ]
+	X = X[gt_idx, :]
+	cells = cells[gt_idx]
+	if len(gt_idx) == 0:
+		print('Warning: 0 cells passed QC in {}'.format(fname))
+	if fname.endswith('.txt'):
+		cache_prefix = '.'.join(fname.split('.')[:-1])
+	elif fname.endswith('.txt.gz'):
+		cache_prefix = '.'.join(fname.split('.')[:-2])
+	elif fname.endswith('.tsv'):
+		cache_prefix = '.'.join(fname.split('.')[:-1])
+	elif fname.endswith('.tsv.gz'):
+		cache_prefix = '.'.join(fname.split('.')[:-2])
+	else:
+		sys.stderr.write('Tab files should end with ".txt" or ".tsv"\n')
+		exit(1)
+
+	cache_fname = cache_prefix + '.npz'
+	np.savez(cache_fname, X=X, genes=genes)
+
+	return X, cells, genes
+
+def process_mtx(dname, min_trans=MIN_TRANSCRIPTS):
+	X, genes = load_mtx(dname)
+
+	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
+			   if s >= min_trans ]
+	X = X[gt_idx, :]
+	if len(gt_idx) == 0:
+		print('Warning: 0 cells passed QC in {}'.format(dname))
+
+	cache_fname = dname + '/tab.npz'
+	scipy.sparse.save_npz(cache_fname, X, compressed=False)
+
+	with open(dname + '/tab.genes.txt', 'w') as of:
+		of.write('\n'.join(genes) + '\n')
+
+	return X, genes
+
+def process_h5(fname, min_trans=MIN_TRANSCRIPTS):
+	X, genes = load_h5(fname)
+
+	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
+			   if s >= min_trans ]
+	X = X[gt_idx, :]
+	if len(gt_idx) == 0:
+		print('Warning: 0 cells passed QC in {}'.format(fname))
+
+	if fname.endswith('.h5'):
+		cache_prefix = '.'.join(fname.split('.')[:-1])
+
+	cache_fname = cache_prefix + '.h5.npz'
+	scipy.sparse.save_npz(cache_fname, X, compressed=False)
+
+	with open(cache_prefix + '.h5.genes.txt', 'w') as of:
+		of.write('\n'.join(genes) + '\n')
+
+	return X, genes
+
+
+def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True):
+	has_label = True
+	if not os.path.isfile(feature_file):
+		sys.exit('%s not exist' % feature_file)
+	if AnnData_label is None and label_file is None:
+		print ('no label file is provided')
+		has_label = False
+	if feature_file.endswith('.h5ad'):
+		x = read_h5ad(feature_file)
+		ncell = np.shape(x.X)[0]
+		dataset = x.X
+		genes = x.var.index
+		if AnnData_label is not None:
+			labels = np.array(x.obs[AnnData_label].tolist())
+	elif feature_file.endswith('.mtx'):
+		process_mtx(feature_file, min_trans=min_trans)
+	elif feature_file.endswith('.h5'):
+		process_h5(feature_file, min_trans=min_trans)
+	elif feature_file.endswith(name):
+		process_tab(feature_file, min_trans=min_trans)
+	elif feature_file.endswith(name + '.txt'):
+		process_tab(feature_file + '.txt', min_trans=min_trans)
+	elif feature_file.endswith(name + '.txt.gz'):
+		process_tab(feature_file + '.txt.gz', min_trans=min_trans)
+	elif feature_file.endswith(name + '.tsv'):
+		process_tab(feature_file + '.tsv', min_trans=min_trans)
+	elif feature_file.endswith(name + '.tsv.gz'):
+		process_tab(feature_file + '.tsv.gz', min_trans=min_trans)
+	else:
+		sys.exit('wrong file format. Please use the file with suffix of .mtx, .h5ad, .h5, .txt, .txt.gz, .tsv, .tsv.gz')
+	if label_file is not None and os.path.isfile(label_file):
+		fin = open(label_file)
+		labels = []
+		for line in fin:
+			labels.append(line.strip())
+		fin.close()
+		labels = np.array(labels)
+	if has_label:
+		ind = []
+		lab_id = []
+		for i,l in enumerate(labels):
+			if l in tp2i:
+				ind.append(i)
+				lab_id.append(tp2i[l])
+		frac = len(ind) * 1. / len(labels)
+		print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
+		ind = np.array(ind)
+		lab_id = np.array(lab_id)
+		labels = np.array(labels)
+		dataset = dataset[ind, :]
+		labels = labels[ind]
+		return dataset, genes, labels
+	else:
+		return dataset, genes
+
+
+
+
+def read_data_TMS(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False,
+cell_type_name_file = '../../OnClass_data/cl.obo'):
+	name2co = get_ontology_name(cell_type_name_file = cell_type_name_file)[1]
 	np.random.seed(seed)
 	if 'facs' in filename:
 		tech = 'facs'
@@ -453,8 +661,8 @@ def evaluate(test_Y_pred, train_Y, test_Y, unseen_l, test_Y_pred_vec = None, com
 	return res_v
 
 
-def get_ontology_name(DATA_DIR = '../../OnClass_data/'):
-	fin = open(DATA_DIR + 'cell_ontology/cl.obo')
+def get_ontology_name(cell_type_name_file):
+	fin = open(cell_type_name_file)
 	co2name = {}
 	name2co = {}
 	tag_is_syn = {}
@@ -473,42 +681,100 @@ def get_ontology_name(DATA_DIR = '../../OnClass_data/'):
 	fin.close()
 	return co2name, name2co
 
-def cal_ontology_emb(dim=20, mi=0, DATA_DIR = '../../OnClass_data/'):
-	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
-	lset = set()
-	s2p = {}
-	for line in fin:
-		s,p = line.strip().split('\t')
-		if s not in s2p:
-			s2p[s] = set()
-		s2p[s].add(p)
-		lset.add(s)
-		lset.add(p)
-	fin.close()
-	lset = np.sort(list(lset))
-	nl = len(lset)
-	l2i = dict(zip(lset, range(nl)))
-	i2l = dict(zip(range(nl), lset))
-	A = np.zeros((nl, nl))
-	for s in s2p:
-		for p in s2p[s]:
-			A[l2i[s], l2i[p]] = 1
-			A[l2i[p], l2i[s]] = 1
-	if mi==0:
-		sp = graph_shortest_path(A,method='FW',directed =False)
-		X = svd_emb(sp, dim=dim)
-		sp *= -1.
-	elif mi==1:
-		sp = graph_shortest_path(A,method='FW',directed =False)
-		X = DCA_vector(sp, dim=dim)[0]
-		sp *= -1.
-	elif mi==2:
-		sp = RandomWalkRestart(A, 0.8)
-		X = svd_emb(sp, dim=dim)
-	elif mi==3:
-		sp = RandomWalkRestart(A, 0.8)
-		X = DCA_vector(sp, dim=dim)[0]
+def run_scanorama(test_X, test_genes, train_X, train_genes):
+	#datasets, genes = merge_datasets([test_X, train_X], [test_genes, train_genes])
+	datasets, genes = merge_datasets([train_X, test_X], [train_genes, test_genes])
+	datasets_dimred, genes = process_data(datasets, genes, dimred=100)
+
+	curr_ds = datasets_dimred[0]
+	curr_ref = datasets_dimred[1]
+
+	alignments, matches = find_alignments(
+		datasets_dimred, knn=knn, approx=approx, alpha=alpha, verbose=verbose,
+		geosketch=geosketch, geosketch_max=geosketch_max
+	)
+
+	ds_ind = [ a for a, _ in matches[(0,1)] ]
+	ref_ind = [ b for _, b in matches[(0,1)] ]
+
+	bias = transform(curr_ds, curr_ref, ds_ind, ref_ind, sigma=sigma,
+					 cn=True, batch_size=batch_size)
+	curr_ref_correct = curr_ds + bias
+
+	return curr_ref_correct
+
+
+def cal_ontology_emb(dim=20, mi=0, cell_type_network_file = '../../OnClass_data/cell_ontology/cl.ontology', use_pretrain = None, write2file = None):
+	if use_pretrain is None:
+		fin = open(cell_type_network_file)
+		lset = set()
+		s2p = {}
+		for line in fin:
+			w = line.strip().split('\t')
+			s = w[0]
+			p = w[1]
+			if len(w)==2:
+				wt = 1.
+			else:
+				wt = float(w[2])
+			if s not in s2p:
+				s2p[s] = {}
+			s2p[s][p] = wt
+			lset.add(s)
+			lset.add(p)
+		fin.close()
+		lset = np.sort(list(lset))
+		nl = len(lset)
+		l2i = dict(zip(lset, range(nl)))
+		i2l = dict(zip(range(nl), lset))
+		A = np.zeros((nl, nl))
+		for s in s2p:
+			for p in s2p[s]:
+				A[l2i[s], l2i[p]] = s2p[s][p]
+				A[l2i[p], l2i[s]] = s2p[s][p]
+		if mi==0:
+			sp = graph_shortest_path(A,method='FW',directed =False)
+			X = svd_emb(sp, dim=dim)
+			sp *= -1.
+		elif mi==1:
+			sp = graph_shortest_path(A,method='FW',directed =False)
+			X = DCA_vector(sp, dim=dim)[0]
+			sp *= -1.
+		elif mi==2:
+			sp = RandomWalkRestart(A, 0.8)
+			X = svd_emb(sp, dim=dim)
+		elif mi==3:
+			sp = RandomWalkRestart(A, 0.8)
+			X = DCA_vector(sp, dim=dim)[0]
+	else:
+		print (use_pretrain)
+		i2l_file = use_pretrain+'i2l.npy'
+		l2i_file = use_pretrain+'l2i.npy'
+		X_file = use_pretrain+'X.npy'
+		X = np.load(X_file)
+		i2l = np.load(i2l_file,allow_pickle=True).item()
+		l2i = np.load(l2i_file,allow_pickle=True).item()
+		sp = X
+	if write2file is not None:
+		i2l_file = write2file+'i2l.npy'
+		l2i_file = write2file+'l2i.npy'
+		X_file = write2file+'X.npy'
+		np.save(X_file, X)
+		np.save(i2l_file, i2l)
+		np.save(l2i_file, l2i)
 	return X, l2i, i2l, sp
+
+def impute_knn(c2l, labid, tp2tp, knn=3):
+	ncell, nlabel = np.shape(c2l)
+	seen_y = set(labid)
+	unseen_y = list(set(np.arange(nlabel)) - set(labid))
+	tp2tp_ind = np.argsort(tp2tp*-1, axis = 1)
+	#tp2tp_ind = tp2tp_ind.astype(int)
+	for i in unseen_y:
+		ngh = tp2tp_ind[i,:knn]
+		c2l[:,i] = np.dot(c2l[:,ngh], tp2tp[i, ngh].T) / knn
+	return c2l
+
 
 def postprocess(mat, mi=0):
 	if mi==0:
@@ -551,7 +817,7 @@ def read_ontology(l2i, DATA_DIR = '../../OnClass_data/'):
 			net[n][n1] = 1
 	return net
 
-def emb_ontology(i2l, dim=20, mi=0, DATA_DIR = '../../OnClass_data/'):
+def emb_ontology(i2l, dim=20, mi=0,  DATA_DIR = '../../OnClass_data/'):
 	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi, DATA_DIR= DATA_DIR)
 	i2emb = np.zeros((len(i2l),dim))
 	nl = len(i2l)
