@@ -24,7 +24,7 @@ class OnClassModel:
 		self.tp2emb, self.tp2i, self.i2tp, _ = cal_ontology_emb(dim=dim, mi=emb_method, cell_type_network_file = cell_type_network_file, write2file = write2file, use_pretrain = use_pretrain)
 		return self.tp2emb, self.tp2i,  self.i2tp
 
-	def train(self, train_feature, train_label, label_emb, genes, model = 'BilinearNN', save_model = None, nhidden=[500], max_iter=500, minibatch_size=32, lr = 0.0001, l2=0.01, use_pretrain=None, log_transform=True, pretrain_expression = None):
+	def train(self, train_feature, train_label, label_emb, genes, model = 'BilinearNN', save_model = None, nhidden=[500], max_iter=20, minibatch_size=32, lr = 0.0001, l2=0.01, use_pretrain=None, log_transform=True, pretrain_expression = None):
 		train_label = [self.tp2i[tp] for tp in train_label]
 		if log_transform:
 			train_feature = np.log1p(train_feature.todense())
@@ -42,8 +42,9 @@ class OnClassModel:
 			self.train_X, self.genes = train_feature, genes
 			self.model = BilinearNN()
 			self.train_BilinearNN(train_feature, train_label, label_emb, save_model = save_model, use_pretrain=use_pretrain, nhidden=nhidden, max_iter=max_iter, minibatch_size=minibatch_size, lr = lr, l2=l2)
+			print ('training finished')
 
-	def train_BilinearNN(self, train_X, train_Y, Y_emb, nhidden=[500], save_model = None, max_iter=500, minibatch_size=32, lr = 0.0001, l2=0.01, use_pretrain=None):
+	def train_BilinearNN(self, train_X, train_Y, Y_emb, nhidden=[500], save_model = None, max_iter=20, minibatch_size=32, lr = 0.0001, l2=0.01, use_pretrain=None):
 		self.nlabel = np.shape(Y_emb)[0]
 		self.nseen = len(np.unique(train_Y))
 		train_Y_pred = self.model.train(train_X, train_Y, Y_emb, self.nlabel, save_model = save_model, use_pretrain=use_pretrain,  nhidden=nhidden, max_iter=max_iter, minibatch_size=minibatch_size, lr = lr, l2= l2)

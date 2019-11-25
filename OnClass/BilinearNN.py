@@ -161,7 +161,8 @@ class BilinearNN:
 				if (epoch+1) % 1 == 0:
 					train_acc,_,train_auroc = self.predict_prob(self.train_X, self.train_Y, self.train_Y_emb)
 					print ("Cost after epoch %i: loss:%.3f acc: %.3f auc: %.3f" % (epoch+1, epoch_cost,train_acc,train_auroc))
+					sys.stdout.flush()
 					if epoch>20 and train_acc>0.99:
 						break
-		if self.save_model is not None and self.use_pretrain is None:
-			saver.save(self.sess, self.save_model)
+					if self.save_model is not None and self.use_pretrain is None:
+						saver.save(self.sess, self.save_model+str(epoch))

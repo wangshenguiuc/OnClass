@@ -18,8 +18,7 @@ if not os.path.exists(OUTPUT_DIR):
 
 
 OnClassModel = OnClassModel()
-tp2emb, tp2i, i2tp = OnClassModel.EmbedCellTypes(dim=500,cell_type_network_file='../../../OnClass_data/cell_ontology/cl.ontology', use_pretrain=None,
-write2file = '../../../OnClass_data/pretrain/tp2emb_500')
+tp2emb, tp2i, i2tp = OnClassModel.EmbedCellTypes(dim=500,cell_type_network_file='../../../OnClass_data/cell_ontology/cl.ontology', use_pretrain='../../../OnClass_data/pretrain/tp2emb_500')
 print (tp2emb)
 
 data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'

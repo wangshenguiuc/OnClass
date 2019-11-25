@@ -1,4 +1,4 @@
-tensorflow-gpu>=1.14.0anndata>=0.6.22.post1
+anndata>=0.6.22.post1
 fbpca>=1.0
 umap-learn>=0.3.10
 matplotlib>=2.0.2
