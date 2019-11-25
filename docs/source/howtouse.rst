@@ -1,13 +1,5 @@
-|PyPI| |Docs|
-
-.. |PyPI| image:: https://img.shields.io/pypi/v/scanpy.svg
-   :target: https://pypi.org/project/OnClass/
-.. |Docs| image:: https://readthedocs.com/projects/icb-scanpy/badge/?version=latest
-   :target: https://onclass.readthedocs.io/en/latest/introduction.html
-
 How to use OnClass.
 =========
-
 They key idea of OnClass is using the Cell ontology to help cell type prediction. OnClass is the first tool that can classify cells into a new cell type that doesn't exist in the training data. To achieve this, the key components are:
 
 1) **Embedding Cell ontology**
