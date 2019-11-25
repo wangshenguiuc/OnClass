@@ -26,12 +26,18 @@ How to use OnClass.
 ~~~~~~~~~
 They key idea of OnClass is using the Cell ontology to help cell type prediction. OnClass is the first tool that can classify cells into a new cell type that doesn't exist in the training data. To achieve this, the key components are:
 
-1) Embedding Cell ontology
-OnClass can use any form of cell type similarity. In our paper, we use the **hierarchical ontology structure** (it is actually directed acyclic graph) from the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__. However, OnClass is very flexible and any forms of prior cell type similarity (i.e., label similarity) can be used. It could be a **weighted network**, where nodes are cell types and edge weights are cell type similarity (preferred to be normalized between 0 and 1, but not required). It could be a **unweighted network** where all edge weights are set to 0, which is the case for the Cell Ontology. It could be just **a few lines of cell type similarity**, where each line is a tab-spitted three Column file in the form of "CL:000001\tCL:000002\t0.8", representing cell type 1, cell type 2, and similarity. An example can be found `here <https://github.com/wangshenguiuc/OnClass/tree/master/img/cell_type_similarity_example.txt>`__ . By default, all edges are undirected since they are similarity. But if you have directed similarities, please email us and we are happy to modify the code to support it.
+1) **Embedding Cell ontology**
 
-We provide a precomputed cell ontology embeddings based on the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__
 
-Please check the API section **Embedding Cell Ontology** for how to read and embed the Cell Ontology.
+OnClass can use any form of cell type similarity. In our paper, we use the **hierarchical ontology structure** (it is actually directed acyclic graph) from the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__. However, OnClass is very flexible and any forms of prior cell type similarity (i.e., label similarity) can be used. It could be a *weighted network*, where nodes are cell types and edge weights are cell type similarity (preferred to be normalized between 0 and 1, but not required). It could be a *unweighted network* where all edge weights are set to 0, which is the case for the Cell Ontology. It could be just *a few lines of cell type similarity*, where each line is a tab-spitted three Column file in the form of "CL:000001\tCL:000002\t0.8", representing cell type 1, cell type 2, and similarity. An example can be found `here <https://github.com/wangshenguiuc/OnClass/tree/master/img/cell_type_similarity_example.txt>`__ . By default, all edges are undirected since they are similarity. But if you have directed similarities, please email us and we are happy to modify the code to support it.
+
+We provide a precomputed cell ontology embeddings based on the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__. Please check the API section **Embedding Cell Ontology** for how to read and embed the Cell Ontology.
+
+2) Read the gene expression data
+
+
+The gene expression data is used as training data. It includes a cell by gene matrix and a label for each cell. The label should be a cell ontology ID or cell ontology terms. If you training labels are not mapped to cell ontology ID, please use our natural language processing tool to map them to existing cell ontology terms. Our tool use a char-level LSTM siamese network and achieve 93.7% accuracy in mapping synonym of cell ontology terms and can deal with composition, misspelling, and abbreviations. For more information about this natural language processing tool, please see section Char-level LSTM for cell type term mapping.
+OnClass is a highly flexible tool that can support g
 
 
 Here is the flowchart of OnClass
