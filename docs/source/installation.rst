@@ -1,14 +1,35 @@
 Installing OnClass
 =========================
+OnClass can be substantially accelerated by using GPU (tensorflow). However, there is only required when you want to train your own model.
 
-Use OnClass with GPU.
-OnClass can be used to predict cell types based on the expression through any of the following five approaches
-1) Use the pretrained marker genes. OnClass found 20 marker genes for each cell type in the Cell Ontology. Marker genes are precomputed based on all FACS cells from Tabula Muris Senis.
-2) Use the predicted score of any existing models and propogate to all cell types in the Cell Ontology.
-3) Use the pretrained Blinear Neural Network model. This model is trained on all FACS cells from Tabula Muris Senis and all cell type terms from the Cell Ontology.
-4) Train from new data. Train a new model on a new gene expression data and predicted on the cell types for a set of new cells.
 
-The
+
+Create Conda environment from github repo (Recommended)
+~~~~~~~~~
+This is the recommended way to install OnClass as it can intall the most updated verision of OnClass
+
+1) Only use CPU
+
+
+.. code:: bash
+
+    git clone https://github.com/wangshenguiuc/OnClass.git
+		conda env create -f environment.yml --name env_name
+		conda activate env_name
+
+..
+
+1) Use GPU
+
+
+
+.. code:: bash
+
+    git clone https://github.com/wangshenguiuc/OnClass.git
+		conda env create -f environment_gpu.yml --name env_name
+		conda activate env_name
+
+..
 
 
 
@@ -17,11 +38,26 @@ PyPI
 OnClass is available through the `Python Package Index`_ and thus can be installed
 using pip. To install OnClass using pip, run:
 
+1) Only use CPU
+
+
 .. code:: bash
 
     pip install OnClass
+		pip install tensorflow-gpu==1.14
 
 .. _Python Package Index: https://pypi.python.org/pypi
+
+1) Use GPU
+
+
+.. code:: bash
+
+    pip install OnClass
+		pip install tensorflow==1.14
+
+.. _Python Package Index: https://pypi.python.org/pypi
+
 
 
 
