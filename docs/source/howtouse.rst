@@ -1,6 +1,6 @@
-How to use OnClass.
+How to use OnClass
 =========
-They key idea of OnClass is using the Cell ontology to help cell type prediction. OnClass is the first tool that can classify cells into a new cell type that doesn't exist in the training data. To achieve this, the key components are:
+They key idea of OnClass is using the Cell ontology to help cell type prediction. OnClass is the first tool that can classify cells into a new cell type that doesn't exist in the training data. To achieve this, it has three steps:
 
 1) **Embedding Cell ontology**
 ~~~~~~~~~
@@ -37,12 +37,9 @@ d) Train from new data. Train a new model on a new gene expression data and pred
 The time and memory complexity of a) and b) are very small (e.g., less than 1 minute on any personal laptop). The time and memory complexity of c) is moderate (less than 1 mintues for 50K cells on GPU and less than 10 minutes for 50K on CPU.) The time and memory complexity of d) is large (about 1 hour for 50k cells on GPU and 4 hour for 50k cells on CPU). However, the expected performance is: d) > c) > b) > a). So please choose one of them according to your application.
 
 
-Flowchart
+**Flowchart**
 ~~~~~~~~~
-Here is the flowchart of OnClass
+Here is the flowchart of OnClass, describing these three steps:
 
 .. image:: img/flowchart.png
 
-OnClass is a joint work by `Altman lab <https://helix.stanford.edu/>`__ at stanford and `czbiohub <https://www.czbiohub.org/>`__.
-
-For questions about the software, please contact `Sheng Wang <http://web.stanford.edu/~swang91/>`__ at swang91@stanford.edu.
