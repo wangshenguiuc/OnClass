@@ -13,11 +13,9 @@ This is the recommended way to install OnClass as it can install the most update
 
 .. code:: bash
 
-    git clone https://github.com/wangshenguiuc/OnClass.git
-
-		conda env create -f environment.yml --name env_name
-
-		conda activate env_name
+	git clone https://github.com/wangshenguiuc/OnClass.git
+	conda env create -f environment.yml --name env_name
+	conda activate env_name
 
 ..
 
@@ -27,11 +25,9 @@ This is the recommended way to install OnClass as it can install the most update
 
 .. code:: bash
 
-    git clone https://github.com/wangshenguiuc/OnClass.git
-
-		conda env create -f environment_gpu.yml --name env_name
-
-		conda activate env_name
+	git clone https://github.com/wangshenguiuc/OnClass.git
+	conda env create -f environment_gpu.yml --name env_name
+	conda activate env_name
 
 ..
 
@@ -47,8 +43,8 @@ using pip. Please use Python3.6. To install OnClass using pip, run:
 
 .. code:: bash
 
-pip install OnClass
-pip install tensorflow-gpu==1.14
+	pip install OnClass
+	pip install tensorflow-gpu==1.14
 
 .. _Python Package Index: https://pypi.python.org/pypi
 
@@ -57,8 +53,8 @@ pip install tensorflow-gpu==1.14
 
 .. code:: bash
 
-    pip install OnClass
-pip install tensorflow==1.14
+	pip install OnClass
+	pip install tensorflow==1.14
 
 .. _Python Package Index: https://pypi.python.org/pypi
 
@@ -72,4 +68,4 @@ The lastest verion of OnClass is on `GitHub
 
 .. code:: bash
 
-    git clone https://github.com/wangshenguiuc/OnClass.git
+	git clone https://github.com/wangshenguiuc/OnClass.git
