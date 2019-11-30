@@ -5,7 +5,7 @@ The datasets used by OnClass paper can be found at `figshare <https://figshare.c
 
 We provided the following datasets.
 
-.. image:: docs/img/figshare.PNG
+.. image:: img/figshare.PNG
 
 Currently, we include:
 

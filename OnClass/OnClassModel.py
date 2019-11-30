@@ -16,11 +16,10 @@ from other_datasets_utils import my_assemble, data_names_all, load_names
 
 class OnClassModel:
 	def __init__(self):
-		print ('Call OnClass')
+		print ('init OnClass')
 
 
 	def EmbedCellTypes(self, cell_type_network_file='../../OnClass_data/cell_ontology/cl.ontology', dim=20, emb_method=3, use_pretrain = None, write2file=None):
-		print (use_pretrain)
 		self.tp2emb, self.tp2i, self.i2tp, _ = cal_ontology_emb(dim=dim, mi=emb_method, cell_type_network_file = cell_type_network_file, write2file = write2file, use_pretrain = use_pretrain)
 		return self.tp2emb, self.tp2i,  self.i2tp
 
