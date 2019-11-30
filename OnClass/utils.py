@@ -25,6 +25,7 @@ from matplotlib import cm
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.ticker import FuncFormatter
 import matplotlib as mpl
+import scanorama
 
 mpl.rcParams['pdf.fonttype'] = 42
 MEDIUM_SIZE = 30
@@ -682,23 +683,33 @@ def get_ontology_name(cell_type_name_file):
 	return co2name, name2co
 
 def run_scanorama(test_X, test_genes, train_X, train_genes):
+	ALPHA = 0.10
+	APPROX = True
+	BATCH_SIZE = 5000
+	DIMRED = 100
+	HVG = None
+	KNN = 20
+	N_ITER = 500
+	PERPLEXITY = 1200
+	SIGMA = 15
+	VERBOSE = 2
+
 	#datasets, genes = merge_datasets([test_X, train_X], [test_genes, train_genes])
-	datasets, genes = merge_datasets([train_X, test_X], [train_genes, test_genes])
-	datasets_dimred, genes = process_data(datasets, genes, dimred=100)
+	datasets, genes = scanorama.merge_datasets([train_X, test_X], [train_genes, test_genes])
+	datasets_dimred, genes = scanorama.process_data(datasets, genes, dimred=100)
 
 	curr_ds = datasets_dimred[0]
 	curr_ref = datasets_dimred[1]
 
-	alignments, matches = find_alignments(
-		datasets_dimred, knn=knn, approx=approx, alpha=alpha, verbose=verbose,
-		geosketch=geosketch, geosketch_max=geosketch_max
+	alignments, matches = scanorama.find_alignments(
+		datasets_dimred, knn=KNN, approx=APPROX, alpha=ALPHA, verbose=VERBOSE
 	)
 
 	ds_ind = [ a for a, _ in matches[(0,1)] ]
 	ref_ind = [ b for _, b in matches[(0,1)] ]
 
-	bias = transform(curr_ds, curr_ref, ds_ind, ref_ind, sigma=sigma,
-					 cn=True, batch_size=batch_size)
+	bias = scanorama.transform(curr_ds, curr_ref, ds_ind, ref_ind, sigma=SIGMA,
+					 cn=True, batch_size=BATCH_SIZE)
 	curr_ref_correct = curr_ds + bias
 
 	return curr_ref_correct
@@ -747,7 +758,6 @@ def cal_ontology_emb(dim=20, mi=0, cell_type_network_file = '../../OnClass_data/
 			sp = RandomWalkRestart(A, 0.8)
 			X = DCA_vector(sp, dim=dim)[0]
 	else:
-		print (use_pretrain)
 		i2l_file = use_pretrain+'i2l.npy'
 		l2i_file = use_pretrain+'l2i.npy'
 		X_file = use_pretrain+'X.npy'

@@ -19,4 +19,5 @@ OnClass is a python package for single-cell cell type annotation. It uses the Ce
    installation
    datasets
    Tutorial
+   API
    references
