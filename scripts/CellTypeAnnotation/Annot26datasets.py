@@ -37,5 +37,5 @@ datasets, genes = scanorama.merge_datasets(datasets, genes_list)
 datasets_dimred, genes = scanorama.process_data(datasets, genes, dimred=100)
 expr_datasets = my_assemble(datasets_dimred, ds_names=data_names_all, expr_datasets = datasets, sigma=150)[1]
 expr_corrected = sparse.vstack(expr_datasets)
-test_label = OnClassModel.predict(expr_corrected, genes,log_transform=False,correct_batch=True)
+test_label = OnClassModel.predict(expr_corrected, genes,log_transform=False,correct_batch=False)
 print (test_label)

@@ -413,6 +413,7 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 		ncell = np.shape(x.X)[0]
 		dataset = x.X
 		genes = x.var.index
+		
 		if AnnData_label is not None:
 			labels = np.array(x.obs[AnnData_label].tolist())
 	elif feature_file.endswith('.mtx'):
@@ -441,14 +442,18 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 	if has_label:
 		ind = []
 		lab_id = []
+		unfound_labs = set()
 		for i,l in enumerate(labels):
 			if l in tp2i:
 				ind.append(i)
 				lab_id.append(tp2i[l])
+			else:
+				unfound_labs.add(l)
 		frac = len(ind) * 1. / len(labels)
 		print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
 		ind = np.array(ind)
 		lab_id = np.array(lab_id)
+		
 		labels = np.array(labels)
 		dataset = dataset[ind, :]
 		labels = labels[ind]
@@ -472,6 +477,7 @@ cell_type_name_file = '../../OnClass_data/cl.obo'):
 	if not os.path.isfile(filename):
 		sys.exit('%s not exist' % filename)
 	x = read_h5ad(filename)
+	
 	ncell = np.shape(x.X)[0]
 	dataset = x.X
 	months = np.array(x.obs['age'].tolist())
@@ -1029,3 +1035,26 @@ def DCA_vector(Q, dim):
 	Y = np.dot(np.sqrt(S), V)
 	Y = np.transpose(Y)
 	return X,U,S,V,Y
+
+
+def map_genes(test_X, test_genes, train_X, train_genes, scan_dim = 100):
+	ntest_cell = np.shape(test_X)[0]
+	ntrain_gene = len(train_genes)
+	new_test_x = np.zeros((ntest_cell, ntrain_gene))
+	genes = set(test_genes) & set(train_genes)
+	train_genes = list(train_genes)
+	test_genes = list(test_genes)
+	print ('number of intersection genes '+str(len(genes)))
+	ind1 = []
+	ind2 = []
+	for i,g in enumerate(genes):
+		ind1.append(train_genes.index(g))
+		ind2.append(test_genes.index(g))
+	ind1 = np.array(ind1)
+	ind2 = np.array(ind2)
+	new_test_x[:,ind1] = test_X[:,ind2]
+	return new_test_x
+
+
+			
+			

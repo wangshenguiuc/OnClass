@@ -91,6 +91,8 @@ class OnClassModel:
 			test_X = np.log1p(test_X.todense())
 		if correct_batch:
 			test_X = run_scanorama(test_X, test_genes, self.train_X, self.genes)
+		else:
+			test_X = map_genes(test_X, test_genes, self.train_X, self.genes)
 		test_Y_pred = self.model.predict(test_X)
 		if normalize:
 			test_Y_pred = self.unseen_normalize(test_Y_pred)
