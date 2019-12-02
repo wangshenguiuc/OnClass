@@ -66,7 +66,6 @@ data_names_all = ['26-datasets/293t_jurkat/293t',
 '26-datasets/pbmc/pbmc_10X']
 
 
-
 def load_data(name):
 	if os.path.isfile(name + '.h5.npz'):
 		X = scipy.sparse.load_npz(name + '.h5.npz')
@@ -113,6 +112,7 @@ def load_names(data_names, norm=True, log1p=False, verbose=True, DATA_DIR = ''):
 
 	return datasets, genes_list, n_cells
 
+	
 
 def my_assemble(datasets, verbose=VERBOSE, view_match=False, knn=KNN,
 			 sigma=SIGMA, approx=APPROX, alpha=ALPHA, expr_datasets=None,
@@ -297,3 +297,22 @@ def my_assemble(datasets, verbose=VERBOSE, view_match=False, knn=KNN,
 			plot_mapping(curr_ds, curr_ref, ds_ind, ref_ind)
 
 	return datasets, expr_datasets
+
+
+def run_scanorama(test_X, test_genes, train_X, train_genes, scan_dim = 100):
+	
+	datasets = [train_X, test_X]
+	genes_list = [train_genes, test_genes]
+	datasets, genes = scanorama.merge_datasets(datasets, genes_list)
+	datasets_dimred, genes = scanorama.process_data(datasets, genes, dimred=scan_dim)
+	datasets_dimred, expr_datasets = my_assemble(datasets_dimred, expr_datasets = datasets, sigma=150)
+	exp = expr_datasets[1]
+	exp = exp.todense()
+	ntest_cell = np.shape(test_X)[0]
+	ntrain_gene = len(train_genes)
+	new_test_x = np.zeros((ntest_cell, ntrain_gene))
+	train_genes = list(train_genes)
+	for i,g in enumerate(genes):
+		ind = [train_genes.index(g)]
+		new_test_x[:,ind] = exp[:,i]
+	return new_test_x

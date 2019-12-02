@@ -11,7 +11,7 @@ sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnCla
 #from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
 from utils import *
 from BilinearNN import BilinearNN
-from other_datasets_utils import my_assemble, data_names_all, load_names
+from other_datasets_utils import my_assemble, data_names_all, load_names, run_scanorama
 
 
 class OnClassModel:

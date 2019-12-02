@@ -7,11 +7,11 @@ The key idea of OnClass is using the Cell ontology to help cell type prediction.
 
 The first step of OnClass is to embed cell types into the low-dimensional space based on the Cell Ontology.
 
-OnClass can take any form of cell type similarities, including hierarchical structure, directed acyclic graph, weighted network, unweighted network or just a few lines of cell type similarity. An example can be found `here <https://github.com/wangshenguiuc/OnClass/blob/master/docs/img/cell_type_similarity_example.txt>`__ .
+OnClass can take different formats of cell type similarities, including hierarchical structure, directed acyclic graph, weighted network, unweighted network or just a few lines of cell type similarity. An example can be found `here <https://github.com/wangshenguiuc/OnClass/blob/master/docs/img/cell_type_similarity_example.txt>`__ .
 
 In our paper, we use the hierarchical ontology structure from the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__. However, OnClass is very flexible and can take any forms of prior cell type similarity (i.e., label similarity) can be used. It could be a *weighted network*, where nodes are cell types and edge weights are cell type similarity (edge weights are not required to be normalized between 0 and 1). It could be an *unweighted network* where all edge weights are set to 1, which is used in our analysis. It could be just *a few lines of cell type similarity*, where each line is a tab-spitted three Column file in the form of "CL:000001	CL:000002	0.8", representing cell type 1, cell type 2, and their similarity. By default, all edges are undirected since they are similarity. But if you have directed similarities, please email us and we are happy to modify the code to support it.
 
-We provide a precomputed cell ontology embeddings based on the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__. Please check the Tutorial section **Embedding Cell Ontology** for how to read and embed the Cell Ontology.
+We provide a precomputed cell ontology embeddings based on the `Cell Ontology <http://www.obofoundry.org/ontology/cl.html>`__ in figshare. Please check the Tutorial section **Embedding Cell Ontology** for how to read and embed the Cell Ontology.
 
 2) **Read the gene expression data**
 ~~~~~~~~~

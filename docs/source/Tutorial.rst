@@ -1,32 +1,28 @@
 Tutorial
 =========
-Here, we provide an introduction of how to use OnClass. We are going to train a model on all cells from TMS and then predict the cell types of new cells from 26-datasets. By using this example, you can see how OnClass embeds the Cell Ontology, reads gene expression data, uses the pretrained model, and makes the prediction on new cells.
+Here, we provide an introduction of how to use OnClass. We are going to train a model on all FACS cells from Tabula Muris Senis (TMS) and then predict the cell types of all droplet cells in TMS. By using this example, you can see how OnClass embeds the Cell Ontology, reads gene expression data, uses the pretrained model, and makes the prediction on new cells.
 
 
-Cell type annotation (Train on TMS, Test on 26-datasets)
+Cell type annotation (Train on FACS cells, Test on droplet cells)
 ----------------
 
-A example script `Annot26datasets.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/Annot26datasets.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/CellTypeAnnotation_TMS.py>`__
+The script `AnnotateTMS.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__
 
-We use Scanorama to remove batch effects across datasets. Please install `Scanorama <https://github.com/brianhie/scanorama>`__ before running this script. Import OnClass and other libs as::
+Import OnClass and other libs as::
 
-	from scanorama import *
-	import numpy as np
-	import os
-	from scipy import sparse
 	from OnClass.utils import *
 	from OnClass.OnClassModel import OnClassModel
 	from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
 		
-Eembedd the cell ontology.::
+Embed the cell ontology.::
 
 	OnClassModel = OnClassModel()
 	tp2emb, tp2i, i2tp = OnClassModel.EmbedCellTypes(dim=500,cell_type_network_file='../../../OnClass_data/cell_ontology/cl.ontology', use_pretrain='../../../OnClass_data/pretrain/tp2emb_500')
 	
-Here, we used the pretrain cell type embedding file tp2emb_500, which is generated from cl.ontology. Both files are provided on figshare. Please download them and put in the corresponding directory. Note here, we are not using gene expression or cell type annotations when embedding the Cell Ontology.
+Here, we used the pretrain cell type embedding file tp2emb_500, which is the 500-dimensional vectors of cell types from cl.ontology. All files are provided on figshare. Please download them and put them in the corresponding directory. At this step, we are not using gene expression or cell type annotations when embedding the Cell Ontology. If you want to generate your own embeddings, please set use_pretrain = None. 
 
 
-Read TMS h5ad gene expression data. cell_ontology_class_reannotated is the attribute of labels in the h5ad file::
+Read TMS h5ad gene expression data. This file is also on figshare which is the data used in our paper. cell_ontology_class_reannotated is the attribute of labels in the h5ad file::
     
 	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
 	train_X, train_genes, train_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
@@ -35,24 +31,16 @@ Train the model ::
 	
 	OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], log_transform = True, use_pretrain = '../../../OnClass_data/pretrain/BilinearNN_500')
 
-Here, we use the pretrain model BilinearNN_500 which can be downloaded from figshare.
+Here, we use the pretrain model BilinearNN_500 which can be downloaded from figshare. If you want to train yoru own model, please set use_pretrain = None. 
 
-Annotate 26-datasets, train on TMS. Scanorama is used autoamtically to correct batch effcts.::
+Predict the labels of cells in droplet cells. Scanorama is used autoamtically to correct batch effcts.::
 
-	datasets, genes_list, n_cells = load_names(data_names_all,verbose=False,log1p=True, DATA_DIR=DATA_DIR)
-	datasets, genes = merge_datasets(datasets, genes_list)
-	datasets_dimred, genes = process_data(datasets, genes, dimred=100)
-	expr_datasets = my_assemble(datasets_dimred, ds_names=data_names_all, expr_datasets = datasets, sigma=150)[1]
-	expr_corrected = sparse.vstack(expr_datasets)
-	expr_corrected = np.log2(expr_corrected.toarray()+1)
+	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
+	test_X, test_genes, test_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
 	
-	test_label = OnClassModel.predict(expr_corrected, genes)
+	test_label = OnClassModel.predict(test_X, test_genes,log_transform=False,correct_batch=True)
 
-	
-	
-After obtaining the scoring matrix, we can run `Evaluate26datasets.py.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/Evaluate26datasets.py.py>` to calculate AUROC.
-
-
+Here, the correction is performed in two steps. First, 26 datasets are corrected and integrated into one dataset. Then this new dataset is corrected with the training expression, which is done by setting correct_batch = True in OnClassModel.predict. If we only want to predict on one test dataset, it is not necessary to perform the first step. 
 
 Data Integration (integrate 26-datasets using OnClass)
 ----------------
