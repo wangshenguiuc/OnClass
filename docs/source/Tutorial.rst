@@ -3,7 +3,7 @@ Tutorial
 Here, we provide an introduction of how to use OnClass. We are going to train a model on all FACS cells from Tabula Muris Senis (TMS) and then predict the cell types of all droplet cells in TMS. By using this example, you can see how OnClass embeds the Cell Ontology, reads gene expression data, uses the pretrained model, and makes the prediction on new cells.
 
 
-Cell type annotation (Train on FACS cells, Test on droplet cells)
+Cell type annotation (Use the pretrained model. Train on FACS cells and test on droplet cells)
 ----------------
 
 The script `AnnotateTMS.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__
@@ -13,34 +13,34 @@ Import OnClass and other libs as::
 	from OnClass.utils import *
 	from OnClass.OnClassModel import OnClassModel
 	from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
-		
+
 Embed the cell ontology.::
 
 	OnClassModel = OnClassModel()
 	tp2emb, tp2i, i2tp = OnClassModel.EmbedCellTypes(dim=500,cell_type_network_file='../../../OnClass_data/cell_ontology/cl.ontology', use_pretrain='../../../OnClass_data/pretrain/tp2emb_500')
-	
-Here, we used the pretrain cell type embedding file tp2emb_500, which is the 500-dimensional vectors of cell types from cl.ontology. All files are provided on figshare. Please download them and put them in the corresponding directory. At this step, we are not using gene expression or cell type annotations when embedding the Cell Ontology. If you want to generate your own embeddings, please set use_pretrain = None. 
+
+Here, we used the pretrain cell type embedding file tp2emb_500, which is the 500-dimensional vectors of cell types from cl.ontology. All files are provided on figshare. Please download them and put them in the corresponding directory. At this step, we are not using gene expression or cell type annotations when embedding the Cell Ontology. If you want to generate your own embeddings, please set use_pretrain = None.
 
 
 Read TMS h5ad gene expression data. This file is also on figshare which is the data used in our paper. cell_ontology_class_reannotated is the attribute of labels in the h5ad file::
-    
+
 	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
 	train_X, train_genes, train_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
 
 Train the model ::
-	
-	OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], log_transform = True, use_pretrain = '../../../OnClass_data/pretrain/BilinearNN_500')
 
-Here, we use the pretrain model BilinearNN_500 which can be downloaded from figshare. If you want to train yoru own model, please set use_pretrain = None. 
+	OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], log_transform = True, use_pretrain = '../../../OnClass_data/pretrain/BilinearNN_50019')
+
+Here, we use the pretrain model BilinearNN_500 which can be downloaded from figshare. If you want to train yoru own model, please set use_pretrain = None.
 
 Predict the labels of cells in droplet cells. Scanorama is used autoamtically to correct batch effcts.::
 
 	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
 	test_X, test_genes, test_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
-	
+
 	test_label = OnClassModel.predict(test_X, test_genes,log_transform=False,correct_batch=True)
 
-Here, the correction is performed in two steps. First, 26 datasets are corrected and integrated into one dataset. Then this new dataset is corrected with the training expression, which is done by setting correct_batch = True in OnClassModel.predict. If we only want to predict on one test dataset, it is not necessary to perform the first step. 
+Here, the correction is performed in two steps. First, 26 datasets are corrected and integrated into one dataset. Then this new dataset is corrected with the training expression, which is done by setting correct_batch = True in OnClassModel.predict. If we only want to predict on one test dataset, it is not necessary to perform the first step.
 
 Data Integration (integrate 26-datasets using OnClass)
 ----------------
@@ -59,7 +59,7 @@ Integration based on our method.::
 	test_Y_pred_red = pca.fit_transform(test_Y_pred[:, :nseen])
 
 Please check `DataIntegration.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/DataIntegration/DataIntegration.py>`__ for how to obtain the UMAP plots.
-	
+
 
 Marker genes identification
 ----------------
@@ -108,4 +108,3 @@ Differential expression analysis.::
 Here, `pv_sort` is the rank list of marker genes for each cell type.
 
 Please check `FindMarkerGenes.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/MarkerGenesIdentification/FindMarkerGenes.py>`__ for how to marker genes. Please check `Marker_genes_based_prediction_droplet.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/MarkerGenesIdentification/Marker_genes_based_prediction_droplet.py>`__  and `Marker_genes_based_prediction_26_datasets.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/MarkerGenesIdentification/Marker_genes_based_prediction_26_datasets.py>`__  for how to use these marker genes to predict cell types for cells in TMS droplets and 26-datasets.
-
