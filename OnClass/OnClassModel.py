@@ -5,13 +5,13 @@ from sklearn.preprocessing import normalize
 from sklearn.metrics import pairwise
 #from OnClass.BilinearNN import BilinearNN
 #from OnClass.utils import *
-sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
+#sys.path.append('/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass/OnClass/')
 #from OnClass.utils import *
 #from OnClass.OnClassModel import OnClassModel
 #from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
-from utils import *
-from BilinearNN import BilinearNN
-from other_datasets_utils import my_assemble, data_names_all, load_names, run_scanorama
+from OnClass.utils import *
+from OnClass.BilinearNN import BilinearNN
+from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names, run_scanorama
 
 
 class OnClassModel:
@@ -53,7 +53,7 @@ class OnClassModel:
 		Returns
 		-------
 		"""
-		
+
 		train_label = [self.tp2i[tp] for tp in train_label]
 		if log_transform:
 			train_feature = np.log1p(train_feature.todense())
@@ -77,7 +77,7 @@ class OnClassModel:
 		"""
 		Train a bilinear model
 		"""
-		
+
 		self.nlabel = np.shape(Y_emb)[0]
 		self.nseen = len(np.unique(train_Y))
 		train_Y_pred = self.model.train(train_X, train_Y, Y_emb, self.nlabel, save_model = save_model, use_pretrain=use_pretrain,  nhidden=nhidden, max_iter=max_iter, minibatch_size=minibatch_size, lr = lr, l2= l2)

@@ -35,7 +35,7 @@ Here, we use the pretrain model BilinearNN_500 which can be downloaded from figs
 
 Predict the labels of cells in droplet cells. Scanorama is used autoamtically to correct batch effcts.::
 
-	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
+	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-droplet.h5ad'
 	test_X, test_genes, test_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
 
 	test_label = OnClassModel.predict(test_X, test_genes,log_transform=False,correct_batch=True)
