@@ -401,7 +401,29 @@ def process_h5(fname, min_trans=MIN_TRANSCRIPTS):
 	return X, genes
 
 
-def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True):
+def write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../../OnClass_data/cell_ontology/cl.obo'):
+	if len(np.shape(test_label))==2:
+		test_label = np.argmax(test_label, axis = 1)
+	co2name, name2co = get_ontology_name(name_mapping_file)
+	x = test_AnnData
+	ncell = np.shape(x.X)[0]
+	print (ncell, len(test_label))
+	assert(ncell == len(test_label))
+	test_name = []
+	test_label_id = []
+	for i in range(ncell):
+		xx = i2tp[test_label[i]]
+		test_label_id.append(xx)
+		test_name.append(co2name[xx])
+	test_name = np.array(test_name)
+	test_label_id = np.array(test_label_id)
+	x.obs['OnClass_annotation_ontology_ID'] = test_label
+	x.obs['OnClass_annotation_ontology_name'] = test_name
+	return x
+
+
+
+def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True,return_AnnData=False):
 	has_label = True
 	if not os.path.isfile(feature_file):
 		sys.exit('%s not exist' % feature_file)
@@ -413,7 +435,7 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 		ncell = np.shape(x.X)[0]
 		dataset = x.X
 		genes = x.var.index
-		
+
 		if AnnData_label is not None:
 			labels = np.array(x.obs[AnnData_label].tolist())
 	elif feature_file.endswith('.mtx'):
@@ -453,13 +475,19 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 		print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
 		ind = np.array(ind)
 		lab_id = np.array(lab_id)
-		
+
 		labels = np.array(labels)
 		dataset = dataset[ind, :]
 		labels = labels[ind]
-		return dataset, genes, labels
+		if return_AnnData:
+			return dataset, genes, labels, x[ind,:]
+		else:
+			return dataset, genes, labels
 	else:
-		return dataset, genes
+		if return_AnnData:
+			return dataset, genes, x
+		else:
+			return dataset, genes
 
 
 
@@ -477,7 +505,7 @@ cell_type_name_file = '../../OnClass_data/cl.obo'):
 	if not os.path.isfile(filename):
 		sys.exit('%s not exist' % filename)
 	x = read_h5ad(filename)
-	
+
 	ncell = np.shape(x.X)[0]
 	dataset = x.X
 	months = np.array(x.obs['age'].tolist())
@@ -1054,7 +1082,3 @@ def map_genes(test_X, test_genes, train_X, train_genes, scan_dim = 100):
 	ind2 = np.array(ind2)
 	new_test_x[:,ind1] = test_X[:,ind2]
 	return new_test_x
-
-
-			
-			

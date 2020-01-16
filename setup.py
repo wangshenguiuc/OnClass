@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "OnClass",
-    version = "0.9",
+    version = "0.93",
     keywords = ("pip", "single cell", "OnClass"),
     description = "Single Cell Annotation based on the Cell Ontology",
     long_description = "Unifying single-cell annotations based on the Cell Ontology",
