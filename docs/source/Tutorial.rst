@@ -45,7 +45,7 @@ Here, the correction is performed in two steps. First, 26 datasets are corrected
 Cell type annotation (Train from scratch)
 ----------------
 
-The script `AnnotateTMS.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__
+The script `TrainOnClassFromScratch.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/TrainOnClassFromScratch.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__
 
 Import OnClass and other libs as::
 
