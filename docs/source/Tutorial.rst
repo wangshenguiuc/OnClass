@@ -33,14 +33,17 @@ Train the model ::
 
 Here, we use the pretrained model BilinearNN_500 which can be downloaded from figshare. If you want to train your own model, please set use_pretrain = None.
 
-Predict the labels of cells in droplet cells. Scanorama is used automatically to correct batch effects.::
+Predict the labels of cells in droplet cells. ::
 
-	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-droplet.h5ad'
-	test_X, test_genes, test_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
+	test_data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-droplet.h5ad'
+	test_X, test_genes, test_AnnData = read_data(feature_file=test_data_file, tp2i = tp2i, return_AnnData = True)
 
-	test_label = OnClassModel.predict(test_X, test_genes,log_transform=False,correct_batch=True)
+	test_label = OnClassModel.predict(test_X, test_genes,log_transform=True,correct_batch=False)
 
-Here, the correction is performed in two steps. First, 26 datasets are corrected and integrated into one dataset. Then this new dataset is corrected with the training expression, which is done by setting correct_batch = True in OnClassModel.predict. If we only want to predict on one test dataset, it is not necessary to perform the first step.
+	x = write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../../OnClass_data/cell_ontology/cl.obo')#output_file is optional
+
+	print (x.obs['OnClass_annotation_ontology_ID'])
+	print (x.obs['OnClass_annotation_ontology_name'])
 
 Cell type annotation (Train from scratch)
 ----------------
@@ -73,18 +76,15 @@ Train the model ::
 	OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], max_iter=20, use_pretrain = None, save_model =  model_path)
 
 
-Here, we trained a model from scratch. If you want to train yoru own model, please set use_pretrain = None.
+Here, we trained a model from scratch. To train your own model, please set use_pretrain = None.
 
-Predict the labels of cells in droplet cells. Scanorama is used automatically to correct batch effects.::
+Predict the labels of cells in droplet cells. ::
 
-	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-droplet.h5ad'
-	test_X, test_genes, test_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
-
-	test_label = OnClassModel.predict(test_X, test_genes,log_transform=False,correct_batch=True)
-
-Here, the correction is performed in two steps. First, 26 datasets are corrected and integrated into one dataset. Then this new dataset is corrected with the training expression, which is done by setting correct_batch = True in OnClassModel.predict. If we only want to predict on one test dataset, it is not necessary to perform the first step.
-
-Data Integration (integrate 26-datasets using OnClass)
+	test_label = OnClassModel.predict(test_X, test_genes,log_transform=True,correct_batch=False)
+	x = write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../../OnClass_data/cell_ontology/cl.obo')#output_file is optional
+	print (x.obs['OnClass_annotation_ontology_ID'])
+	print (x.obs['OnClass_annotation_ontology_name'])
+	Data Integration (integrate 26-datasets using OnClass)
 ----------------
 
 A example script `DataIntegration.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/DataIntegration/DataIntegration.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/DataIntegration/DataIntegration.py>`__

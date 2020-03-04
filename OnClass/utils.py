@@ -423,7 +423,7 @@ def write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../
 
 
 
-def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True,return_AnnData=False):
+def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True, return_AnnData=False):
 	has_label = True
 	if not os.path.isfile(feature_file):
 		sys.exit('%s not exist' % feature_file)

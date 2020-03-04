@@ -2,6 +2,7 @@ from OnClass.utils import *
 from OnClass.OnClassModel import OnClassModel
 from OnClass.other_datasets_utils import my_assemble, data_names_all, load_names
 
+print ('here')
 
 
 OnClassModel = OnClassModel()
