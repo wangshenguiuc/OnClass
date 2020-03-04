@@ -48,7 +48,8 @@ Predict the labels of cells in droplet cells. ::
 Cell type annotation (Train from scratch)
 ----------------
 
-The script `TrainOnClassFromScratch.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/TrainOnClassFromScratch.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__
+The script `TrainOnClassFromScratch.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/TrainOnClassFromScratch.py>`__ showing an example of training from scratch is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/TrainOnClassFromScratch.py>`__
+To run this script, you need a training data (tabula-muris-senis-facs_cell_ontology.h5ad in this script) and a test data (tabula-muris-senis-droplet.h5ad in this script). The two datasets used in our script are in figshare.
 
 Import OnClass and other libs as::
 
@@ -64,27 +65,31 @@ Embed the cell ontology.::
 Here, we used the pretrained cell type embedding file tp2emb_500, which is the 500-dimensional vectors of cell types from cl.ontology. All files are provided on figshare. Please download them and put them in the corresponding directory. At this step, we are not using gene expression or cell type annotations when embedding the Cell Ontology. If you want to generate your own embeddings, please set use_pretrain = None.
 
 
-Read TMS h5ad gene expression data. This file is also on figshare which is the data used in our paper. cell_ontology_class_reannotated is the attribute of labels in the h5ad file::
+Read the training data and the test dataset. cell_ontology_class_reannotated is the attribute of labels in the h5ad file::
 
+	test_data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-droplet.h5ad'
+	test_X, test_genes, test_AnnData = read_data(feature_file=test_data_file, tp2i = tp2i, return_AnnData = True)
+	print (np.shape(test_X))
 	data_file = '../../../OnClass_data/raw_data/tabula-muris-senis-facs_cell_ontology.h5ad'
 	train_X, train_genes, train_Y = read_data(feature_file=data_file, tp2i = tp2i, AnnData_label='cell_ontology_class_reannotated')
+	print (np.shape(train_X))
 
-Train the model ::
+
+Train the model. Here, we trained a model from scratch. To train your own model, please set use_pretrain = None.:
 
 	model_name = 'human'
 	model_path = '../../../OnClass_data/pretrain/' + model_name
 	OnClassModel.train(train_X, train_Y, tp2emb, train_genes, nhidden=[500], max_iter=20, use_pretrain = None, save_model =  model_path)
 
 
-Here, we trained a model from scratch. To train your own model, please set use_pretrain = None.
-
-Predict the labels of cells in droplet cells. ::
+Predict the labels of cells in the test data and write it to the test anndata object. ::
 
 	test_label = OnClassModel.predict(test_X, test_genes,log_transform=True,correct_batch=False)
 	x = write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../../OnClass_data/cell_ontology/cl.obo')#output_file is optional
 	print (x.obs['OnClass_annotation_ontology_ID'])
 	print (x.obs['OnClass_annotation_ontology_name'])
-	Data Integration (integrate 26-datasets using OnClass)
+
+Data Integration (integrate 26-datasets using OnClass)
 ----------------
 
 A example script `DataIntegration.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/DataIntegration/DataIntegration.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/DataIntegration/DataIntegration.py>`__
