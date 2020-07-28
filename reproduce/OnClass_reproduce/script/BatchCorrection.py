@@ -51,7 +51,7 @@ scan_dim = 50
 nn_nhidden = [100,50,25]
 keep_prob = 0.7
 dname = 'muris_facs'
-use_pretrain = False
+use_pretrain = True
 if use_pretrain:
 	prefix = 'pretrained.'
 else:
