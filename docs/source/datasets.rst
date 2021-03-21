@@ -1,6 +1,6 @@
 Dataset and pretrained models
 =========
-The datasets used by OnClass paper can be found at `figshare <https://figshare.com/projects/OnClass/70637>`__.
+The datasets used by OnClass paper can be found at `figshare <https://figshare.com/articles/dataset/OnClass_cell_ontology/14256530>`__.
 
 
 We provided the following datasets.

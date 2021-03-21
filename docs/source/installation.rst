@@ -43,8 +43,8 @@ using pip. Please use Python3.6. To install OnClass using pip, run:
 
 .. code:: bash
 
-	pip install OnClass
-	pip install tensorflow==1.14
+	pip install OnClass==0.953
+	install tensorflow 2.0
 
 .. _Python Package Index: https://pypi.python.org/pypi
 
@@ -53,8 +53,8 @@ using pip. Please use Python3.6. To install OnClass using pip, run:
 
 .. code:: bash
 
-	pip install OnClass
-	pip install tensorflow-gpu==1.14
+	pip install OnClass==0.953
+	install tensorflow-gpu 2.0
 
 .. _Python Package Index: https://pypi.python.org/pypi
 
