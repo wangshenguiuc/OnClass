@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "OnClass",
-    version = "0.93",
+    version = "1.1",
     keywords = ("pip", "single cell", "OnClass"),
     description = "Single Cell Annotation based on the Cell Ontology",
     long_description = "Unifying single-cell annotations based on the Cell Ontology",
@@ -16,7 +16,7 @@ setup(
     include_package_data = True,
     platforms = "any",
     install_requires=[
-		#'tensorflow-gpu>=1.14.0'
+		'sentence-transformers',
 		'anndata>=0.6.4',
         'fbpca>=1.0',
         'umap-learn>=0.3.10',
@@ -24,6 +24,6 @@ setup(
         'numpy>=1.16.4',
         'scipy>=1.3.1',
         'scikit-learn>=0.21.3',
-        'scanorama==1.4',
+        'scanorama',
     ]
 )

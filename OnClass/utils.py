@@ -7,7 +7,10 @@ import collections
 import os
 import time
 from fbpca import pca
+import warnings
 from collections import Counter
+from sklearn.preprocessing import normalize
+from scipy import spatial
 from scipy.sparse.linalg import svds, eigs
 from sklearn.metrics import roc_auc_score,accuracy_score,precision_recall_fscore_support, cohen_kappa_score
 from sklearn import preprocessing
@@ -15,6 +18,7 @@ from sklearn.utils.graph_shortest_path import graph_shortest_path
 from sklearn.decomposition import PCA
 from sklearn import preprocessing
 import umap
+from sklearn.metrics.pairwise import cosine_similarity
 #from src.models.random_walk_with_restart.RandomWalkRestart import RandomWalkRestart, DCA_vector
 from sklearn.model_selection import train_test_split
 import matplotlib
@@ -38,6 +42,56 @@ plt.rc('xtick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
 plt.rc('ytick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
 plt.rc('legend', fontsize=MEDIUM_SIZE)	# legend fontsize
 plt.rc('figure', titlesize=MEDIUM_SIZE)  # fontsize of the figure title
+
+def read_cell_type_nlp_network(nlp_emb_file, cell_type_network_file):
+	fin = open(cell_type_network_file)
+	co2co_graph = {}
+	for line in fin:
+		w = line.strip().split('\t')
+		if w[0] not in co2co_graph:
+			co2co_graph[w[0]] = set()
+		co2co_graph[w[0]].add(w[1])
+		if w[1] not in co2co_graph:
+			co2co_graph[w[1]] = set()
+		co2co_graph[w[1]].add(w[0])
+	fin.close()
+
+	fin = open(nlp_emb_file)
+	co2vec_nlp = {}
+	for line in fin:
+		w = line.strip().split('\t')
+		vec = []
+		for i in range(1,len(w)):
+			vec.append(float(w[i]))
+		co2vec_nlp[w[0]] = np.array(vec)
+	fin.close()
+	co2co_nlp = {}
+	for id1 in co2co_graph:
+		co2co_nlp[id1] = {}
+		for id2 in co2co_graph[id1]:
+			sc = 1 - spatial.distance.cosine(co2vec_nlp[id1], co2vec_nlp[id2])
+			co2co_nlp[id1][id2] = sc
+	return co2co_graph, co2co_nlp, co2vec_nlp
+
+def fine_nearest_co_using_nlp(sentences,co2emb,cutoff=0.8):
+	from sentence_transformers import SentenceTransformer
+	model = SentenceTransformer('bert-base-nli-mean-tokens')
+	sentence_embeddings = model.encode(sentences)
+	co_embeddings = []
+	cos = []
+	for co in co2emb:
+		co_embeddings.append(co2emb[co])
+		cos.append(co)
+	co_embeddings = np.array(co_embeddings)
+	sent2co = {}
+	for sentence, embedding, ind in zip(sentences, sentence_embeddings, range(len(sentences))):
+		scs = cosine_similarity(co_embeddings, embedding.reshape(1,-1))
+
+		co_id = np.argmax(scs)
+		sc = scs[co_id]
+		if sc>cutoff:
+			sent2co[sentence] = cos[co_id]
+	return sent2co
 
 def map_26_datasets_cell2cid(use_detailed=False):
 	if not use_detailed:
@@ -422,12 +476,43 @@ def write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../
 	return x
 
 
+def process_expression(c2g_list):
+	#this data process function is motivated by ACTINN, please check ACTINN for more information.
+	c2g = np.vstack(c2g_list)
+	c2g = c2g.T
+	#print ('onclass d0',np.shape(c2g))
+	c2g = c2g[np.sum(c2g, axis=1)>0, :]
+	#print (c2g)
+	#print ('onclass d1',np.shape(c2g))
+	c2g = np.divide(c2g, np.sum(c2g, axis=0, keepdims=True)) * 10000
+	c2g = np.log2(c2g+1)
+	expr = np.sum(c2g, axis=1)
+	#total_set = total_set[np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99)),]
 
-def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_genes=True, return_AnnData=False):
+	c2g = c2g[np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99)),]
+	#print (c2g)
+	#print ('onclass d2',np.shape(c2g))
+	cv = np.std(c2g, axis=1) / np.mean(c2g, axis=1)
+	c2g = c2g[np.logical_and(cv >= np.percentile(cv, 1), cv <= np.percentile(cv, 99)),]
+	#print (c2g)
+	#print ('onclass d3',np.shape(c2g))
+	c2g = c2g.T
+	#print (c2g)
+	#print ('onclass d4',np.shape(c2g))
+	c2g_list_new = []
+	index = 0
+	for c in c2g_list:
+		ncell = np.shape(c)[0]
+		c2g_list_new.append(c2g[index:index+ncell,:])
+		index = ncell
+	return c2g_list_new
+
+def read_data(feature_file, cell_ontology_ids, AnnData_label_key=None, nlp_mapping = True, nlp_mapping_cutoff = 0.8, co2emb = None, label_file=None, return_genes=True, return_AnnData=False):
 	has_label = True
+
 	if not os.path.isfile(feature_file):
 		sys.exit('%s not exist' % feature_file)
-	if AnnData_label is None and label_file is None:
+	if AnnData_label_key is None and label_file is None:
 		print ('no label file is provided')
 		has_label = False
 	if feature_file.endswith('.h5ad'):
@@ -436,8 +521,9 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 		dataset = x.X
 		genes = x.var.index
 
-		if AnnData_label is not None:
-			labels = np.array(x.obs[AnnData_label].tolist())
+		if AnnData_label_key is not None:
+			labels = np.array(x.obs[AnnData_label_key].tolist())
+
 	elif feature_file.endswith('.mtx'):
 		process_mtx(feature_file, min_trans=min_trans)
 	elif feature_file.endswith('.h5'):
@@ -462,17 +548,26 @@ def read_data(feature_file, tp2i, AnnData_label=None, label_file=None, return_ge
 		fin.close()
 		labels = np.array(labels)
 	if has_label:
+		if nlp_mapping:
+			lab2co = fine_nearest_co_using_nlp(np.unique(labels), co2emb, cutoff=nlp_mapping_cutoff)
 		ind = []
 		lab_id = []
 		unfound_labs = set()
 		for i,l in enumerate(labels):
-			if l in tp2i:
+			if l in cell_ontology_ids:
 				ind.append(i)
-				lab_id.append(tp2i[l])
+				lab_id.append(l)
+			elif l in lab2co:
+				ind.append(i)
+				lab_id.append(lab2co[l])
 			else:
 				unfound_labs.add(l)
 		frac = len(ind) * 1. / len(labels)
-		print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
+		#print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
+		warn_message = 'Only: '+ '%f precentage of labels are in the Cell Ontology' % (frac * 100) + 'The remaining cells are excluded!'
+		print (warn_message)
+		if frac<0.5:
+			warnings.warn(warn_message)
 		ind = np.array(ind)
 		lab_id = np.array(lab_id)
 
@@ -717,9 +812,55 @@ def get_ontology_name(cell_type_name_file):
 	return co2name, name2co
 
 
-def cal_ontology_emb(dim=20, mi=0, cell_type_network_file = '../../OnClass_data/cell_ontology/cl.ontology', use_pretrain = None, write2file = None):
-	if use_pretrain is None:
-		fin = open(cell_type_network_file)
+def graph_embedding(A, i2l, mi=0, dim=20,use_seen_only=True,unseen_l=None):
+	nl = np.shape(A)[0]
+	if use_seen_only:
+		seen_ind = []
+		unseen_ind = []
+		for i in range(nl):
+			if i2l[i] in unseen_l:
+				unseen_ind.append(i)
+			else:
+				seen_ind.append(i)
+		seen_ind = np.array(seen_ind)
+		unseen_ind = np.array(unseen_ind)
+
+	#if len(seen_ind) * 0.8 < dim:
+	#	dim = int(len(seen_ind) * 0.8)
+	if mi==0 or mi == 1:
+		sp = graph_shortest_path(A,method='FW',directed =False)
+	else:
+		sp = RandomWalkRestart(A, 0.8)
+	if use_seen_only:
+		sp = sp[seen_ind, :]
+		sp = sp[:,seen_ind]
+	X = np.zeros((np.shape(sp)[0],dim))
+	svd_dim = min(dim, np.shape(sp)[0]-1)
+	if mi==0 or mi == 2:
+		X[:,:svd_dim] = svd_emb(sp, dim=svd_dim)
+	else:
+		X[:,:svd_dim] = DCA_vector(sp, dim=svd_dim)[0]
+	if use_seen_only:
+		X_ret = np.zeros((nl, dim))
+		X_ret[seen_ind,:] = X
+	else:
+		X_ret = X
+	if mi==2 or mi == 3:
+		sp *= -1
+	return sp, X_ret
+
+def cal_ontology_emb(dim=20, mi=3,  use_pretrain = None, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology', use_seen_only = True, unseen_l = None):
+	if use_pretrain is None or not os.path.isfile(use_pretrain+'X.npy') or not os.path.isfile(use_pretrain+'sp.npy'):
+		cl_nlp = collections.defaultdict(dict)
+		if ontology_nlp_file is not None:
+			fin = open(ontology_nlp_file)
+			for line in fin:
+				s,p,wt = line.upper().strip().split('\t')
+				cl_nlp[s][p] = float(wt)
+				cl_nlp[p][s] = float(wt)
+			fin.close()
+
+		fin = open(ontology_file)
 		lset = set()
 		s2p = {}
 		for line in fin:
@@ -727,7 +868,10 @@ def cal_ontology_emb(dim=20, mi=0, cell_type_network_file = '../../OnClass_data/
 			s = w[0]
 			p = w[1]
 			if len(w)==2:
-				wt = 1.
+				if p in cl_nlp and s in cl_nlp[p]:
+					wt = cl_nlp[p][s]
+				else:
+					wt = 1.
 			else:
 				wt = float(w[2])
 			if s not in s2p:
@@ -745,36 +889,27 @@ def cal_ontology_emb(dim=20, mi=0, cell_type_network_file = '../../OnClass_data/
 			for p in s2p[s]:
 				A[l2i[s], l2i[p]] = s2p[s][p]
 				A[l2i[p], l2i[s]] = s2p[s][p]
-		if mi==0:
-			sp = graph_shortest_path(A,method='FW',directed =False)
-			X = svd_emb(sp, dim=dim)
-			sp *= -1.
-		elif mi==1:
-			sp = graph_shortest_path(A,method='FW',directed =False)
-			X = DCA_vector(sp, dim=dim)[0]
-			sp *= -1.
-		elif mi==2:
-			sp = RandomWalkRestart(A, 0.8)
-			X = svd_emb(sp, dim=dim)
-		elif mi==3:
-			sp = RandomWalkRestart(A, 0.8)
-			X = DCA_vector(sp, dim=dim)[0]
+		sp, X =  graph_embedding(A, i2l, mi=mi, dim=dim, use_seen_only=use_seen_only, unseen_l=unseen_l)
+		if use_pretrain is not None:
+			i2l_file = use_pretrain+'i2l.npy'
+			l2i_file = use_pretrain+'l2i.npy'
+			X_file = use_pretrain+'X.npy'
+			sp_file = use_pretrain+'sp.npy'
+			np.save(X_file, X)
+			np.save(i2l_file, i2l)
+			np.save(l2i_file, l2i)
+			np.save(sp_file, sp)
 	else:
 		i2l_file = use_pretrain+'i2l.npy'
 		l2i_file = use_pretrain+'l2i.npy'
 		X_file = use_pretrain+'X.npy'
+		sp_file = use_pretrain+'sp.npy'
 		X = np.load(X_file)
 		i2l = np.load(i2l_file,allow_pickle=True).item()
 		l2i = np.load(l2i_file,allow_pickle=True).item()
-		sp = X
-	if write2file is not None:
-		i2l_file = write2file+'i2l.npy'
-		l2i_file = write2file+'l2i.npy'
-		X_file = write2file+'X.npy'
-		np.save(X_file, X)
-		np.save(i2l_file, i2l)
-		np.save(l2i_file, l2i)
+		sp = np.load(sp_file,allow_pickle=True)
 	return X, l2i, i2l, sp
+
 
 def impute_knn(c2l, labid, tp2tp, knn=3):
 	ncell, nlabel = np.shape(c2l)
@@ -812,40 +947,75 @@ def get_onotlogy_parents(GO_net, g):
 			term_valid.add(GO)
 	return term_valid
 
-def read_ontology(l2i, DATA_DIR = '../../OnClass_data/'):
+
+def read_ontology(l2i, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
 	nl = len(l2i)
 	net = collections.defaultdict(dict)
-	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
+	net_mat = np.zeros((nl,nl))
+	fin = open(ontology_file)
 	for line in fin:
 		s,p = line.strip().split('\t')
 		si = l2i[s]
 		pi = l2i[p]
-		net[pi][si] = 1
+		net[si][pi] = 1
+		net_mat[si][pi] = 1
 	fin.close()
 	for n in range(nl):
-		ngh = get_onotlogy_parents(net, n)
+		ngh = get_ontology_parents(net, n)
 		net[n][n] = 1
 		for n1 in ngh:
 			net[n][n1] = 1
-	return net
+	return net, net_mat
 
-def emb_ontology(i2l, dim=20, mi=0,  DATA_DIR = '../../OnClass_data/'):
-	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi, DATA_DIR= DATA_DIR)
+
+def extend_prediction_2unseen(pred_Y_seen, networks, nseen, ratio=200, use_normalize=False):
+	if not isinstance(networks, list):
+		networks = [networks]
+	pred_Y_all_totoal = 0.
+	for onto_net_rwr in networks:
+		if use_normalize:
+			onto_net_rwr = onto_net_rwr - np.tile(np.mean(onto_net_rwr, axis = 1), (np.shape(onto_net_rwr)[0], 1))
+		pred_Y_seen_norm = pred_Y_seen / pred_Y_seen.sum(axis=1)[:, np.newaxis]
+		pred_Y_all = np.dot(pred_Y_seen_norm, onto_net_rwr[:nseen,:])
+		pred_Y_all[:,:nseen] = normalize(pred_Y_all[:,:nseen],norm='l1',axis=1)
+		pred_Y_all[:,nseen:] = normalize(pred_Y_all[:,nseen:],norm='l1',axis=1) * ratio
+		pred_Y_all_totoal += pred_Y_all
+	return pred_Y_all_totoal
+
+
+def get_ontology_parents(GO_net, g):
+	term_valid = set()
+	ngh_GO = set()
+	ngh_GO.add(g)
+	while len(ngh_GO) > 0:
+		for GO in list(ngh_GO):
+			for GO1 in GO_net[GO]:
+				ngh_GO.add(GO1)
+			ngh_GO.remove(GO)
+			term_valid.add(GO)
+	return term_valid
+
+def emb_ontology(i2l, dim=20, mi=0,  ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology', use_pretrain = None, use_seen_only = True, unseen_l = None):
+	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi,  ontology_nlp_file =ontology_nlp_file, ontology_file = ontology_file, use_pretrain = use_pretrain, use_seen_only = True, unseen_l = unseen_l)
+
 	i2emb = np.zeros((len(i2l),dim))
 	nl = len(i2l)
 	for i in range(nl):
 		ant = i2l[i]
 		if ant not in ont_l2i:
+			print (ant, ont_l2i)
 			assert('xxx' in ant.lower() or 'nan' in ant.lower())
 			continue
 		i2emb[i,:] = X[ont_l2i[ant],:]
+	'''
 	AA = np.zeros((nl, nl))
 	for i in range(nl):
 		for j in range(nl):
 			anti, antj = i2l[i], i2l[j]
 			if anti in ont_l2i and antj in ont_l2i:
 				AA[i,j] = A[ont_l2i[anti],ont_l2i[antj]]
-	return i2emb, AA
+	'''
+	return i2emb
 
 def ConvertLabels(labels, ncls=-1):
 	ncell = np.shape(labels)[0]
@@ -871,8 +1041,9 @@ def ConvertLabels(labels, ncls=-1):
 		return vec
 
 
-def create_labels(train_Y, combine_unseen = False, DATA_DIR = '../../OnClass_data/'):
-	fin = open(DATA_DIR + 'cell_ontology/cl.ontology')
+def create_labels(train_Y, combine_unseen = False, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
+
+	fin = open(ontology_file)
 	lset = set()
 	for line in fin:
 		s,p = line.strip().split('\t')
@@ -898,8 +1069,9 @@ def create_labels(train_Y, combine_unseen = False, DATA_DIR = '../../OnClass_dat
 		i2l[nl] = col
 	train_Y = [l2i[y] for y in train_Y]
 	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
-	onto_net = read_ontology(l2i, DATA_DIR=DATA_DIR)
-	return unseen_l, l2i, i2l, train_X2Y, onto_net
+	onto_net, onto_net_mat = read_ontology(l2i, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
+	return unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat
+
 
 def extract_data_based_on_class(feats, labels, sel_labels):
 	ind = []
@@ -997,6 +1169,37 @@ def MapLabel2CL(test_Y, l2i):
 	test_Y = np.array([l2i[y] for y in test_Y])
 	return test_Y
 
+
+def create_labels(train_Y, combine_unseen = False, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
+
+	fin = open(ontology_file)
+	lset = set()
+	for line in fin:
+		s,p = line.strip().split('\t')
+		lset.add(s)
+		lset.add(p)
+	fin.close()
+
+	seen_l = sorted(np.unique(train_Y))
+	unseen_l = sorted(lset - set(train_Y))
+	ys =  np.concatenate((seen_l, unseen_l))
+
+	i2l = {}
+	l2i = {}
+	for l in ys:
+		nl = len(i2l)
+		col = l
+		if combine_unseen and l in unseen_l:
+			nl = len(seen_l)
+			l2i[col] = nl
+			i2l[nl] = col
+			continue
+		l2i[col] = nl
+		i2l[nl] = col
+	train_Y = [l2i[y] for y in train_Y]
+	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
+	onto_net, onto_net_mat = read_ontology(l2i, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
+	return unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat
 
 def renorm(X):
 	Y = X.copy()
