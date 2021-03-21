@@ -1,10 +1,10 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+tf.logging.set_verbosity(tf.logging.ERROR)
 import sys
 from scipy.special import softmax
 import time
@@ -14,7 +14,7 @@ from scipy import stats
 
 class BilinearNN:
 	def __init__(self, Y_emb, nseen, ngene, use_pretrain = None, nhidden=[1000], l2=0.005):
-		tf.compat.v1.reset_default_graph()
+		tf.reset_default_graph()
 		self.ncls, self.ndim = np.shape(Y_emb)
 		self.l2 = l2
 		self.nseen = nseen
@@ -29,16 +29,16 @@ class BilinearNN:
 		self.nhidden = [self.ngene]
 		self.nhidden.extend(nhidden)
 		self.nhidden.append(self.ndim)
-		tf.compat.v1.set_random_seed(3)
+		tf.set_random_seed(3)
 
 		self.__build()
 		self.__build_loss()
 		self.saver = tf.train.Saver()
-		self.sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
+		self.sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
 		if self.use_pretrain is not None:
 			self.saver.restore(self.sess, self.use_pretrain)
 		#else:
-		#	self.sess.run(tf.compat.v1.global_variables_initializer())
+		#	self.sess.run(tf.global_variables_initializer())
 
 
 	def read_training_data(self, train_X, train_Y, use_valid = False, valid_X = None, valid_Y = None, test_X = None, test_Y = None):
@@ -84,20 +84,20 @@ class BilinearNN:
 		tf.set_random_seed(seed) # set seed to make the results consistant
 		#w_init =  tf.contrib.layers.xavier_initializer(seed = seed)
 		w_init =  tf.glorot_uniform_initializer(seed = seed)#tf 2.0 has no tf.contribu. Glorot is the same as xavier
-		b_init = tf.compat.v1.zeros_initializer()
+		b_init = tf.zeros_initializer()
 		self.nlayer = len(self.nhidden)
 		self.W = {}
 		self.B = {}
 		for i in range(1,self.nlayer):
-			self.W[i] = tf.compat.v1.get_variable("W"+str(i), [self.nhidden[i], self.nhidden[i-1]], initializer = w_init, dtype=tf.float32)
-			self.B[i] = tf.compat.v1.get_variable("B"+str(i), [self.nhidden[i], 1], initializer = b_init, dtype=tf.float32)
+			self.W[i] = tf.get_variable("W"+str(i), [self.nhidden[i], self.nhidden[i-1]], initializer = w_init, dtype=tf.float32)
+			self.B[i] = tf.get_variable("B"+str(i), [self.nhidden[i], 1], initializer = b_init, dtype=tf.float32)
 		#self.B = tf.get_variable("B", [1, 1], initializer = tf.zeros_initializer(), dtype=tf.float32)
 
 	def __build_loss(self):
-		self.mini_train_X = tf.compat.v1.placeholder(shape=[None, self.ngene], dtype=tf.float32)
-		self.mini_train_Y = tf.compat.v1.placeholder(shape=[None, self.nseen], dtype=tf.float32)
-		self.mini_train_Y_emb = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.float32)
-		self.train_keep_prob = tf.compat.v1.placeholder(tf.float32)
+		self.mini_train_X = tf.placeholder(shape=[None, self.ngene], dtype=tf.float32)
+		self.mini_train_Y = tf.placeholder(shape=[None, self.nseen], dtype=tf.float32)
+		self.mini_train_Y_emb = tf.placeholder(shape=[None, None], dtype=tf.float32)
+		self.train_keep_prob = tf.placeholder(tf.float32)
 		self.p = self.mini_train_X
 		self.loss = 0
 		for i in range(1,self.nlayer):
@@ -185,13 +185,13 @@ class BilinearNN:
 	def optimize(self, max_iter = 50, minibatch_size = 128, keep_prob = 1., lr = 0.0001, save_model = None):
 
 		self.keep_prob = keep_prob
-		tf.compat.v1.set_random_seed(3)
+		tf.set_random_seed(3)
 		seed = 3
 		global_step = tf.Variable(0, trainable=False)
-		decay_lr = tf.compat.v1.train.exponential_decay(lr, global_step, 1000, 0.95, staircase=True)
-		train_op =  tf.compat.v1.train.AdamOptimizer(learning_rate=decay_lr).minimize(self.loss)
+		decay_lr = tf.train.exponential_decay(lr, global_step, 1000, 0.95, staircase=True)
+		train_op =  tf.train.AdamOptimizer(learning_rate=decay_lr).minimize(self.loss)
 		#print (self.sess.run(self.W[1]))
-		self.sess.run(tf.compat.v1.global_variables_initializer())
+		self.sess.run(tf.global_variables_initializer())
 		for epoch in range(max_iter):
 			seed = seed + 1
 			minibatches = self.random_mini_batches(self.train_X, self.train_Y, minibatch_size, seed)

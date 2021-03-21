@@ -3,8 +3,9 @@ setup.py
 OnClass/BilinearNN.py
 OnClass/OnClassModel.py
 OnClass/OnClassPred.py
+OnClass/OnClass_utils.py
 OnClass/__init__.py
-OnClass/other_datasets_utils.py
+OnClass/libs.py
 OnClass/utils.py
 OnClass.egg-info/PKG-INFO
 OnClass.egg-info/SOURCES.txt

@@ -4,78 +4,73 @@ from time import time
 from scipy import stats, sparse
 import numpy as np
 import collections
-import os
-import time
-from fbpca import pca
-import warnings
-from collections import Counter
+import pickle
 from sklearn.preprocessing import normalize
-from scipy import spatial
-from scipy.sparse.linalg import svds, eigs
-from sklearn.metrics import roc_auc_score,accuracy_score,precision_recall_fscore_support, cohen_kappa_score
-from sklearn import preprocessing
-from sklearn.utils.graph_shortest_path import graph_shortest_path
-from sklearn.decomposition import PCA
-from sklearn import preprocessing
-import umap
-from sklearn.metrics.pairwise import cosine_similarity
-#from src.models.random_walk_with_restart.RandomWalkRestart import RandomWalkRestart, DCA_vector
+import os
+from collections import Counter
+import pandas as pd
 from sklearn.model_selection import train_test_split
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
-from matplotlib import cm
-from matplotlib.ticker import FormatStrFormatter
-from matplotlib.ticker import FuncFormatter
-import matplotlib as mpl
+from sklearn.metrics import roc_auc_score,accuracy_score,precision_recall_fscore_support, cohen_kappa_score, auc, average_precision_score,f1_score,precision_recall_curve
+import time
+import umap
+import copy
+from sklearn import preprocessing
+from fbpca import pca
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics.pairwise import cosine_similarity
+#from libs import *
+from sklearn.utils.graph_shortest_path import graph_shortest_path
+from scipy.sparse.linalg import svds, eigs
+
+nn_nhidden = [1000]
+rsts = [0.5,0.6,0.7,0.8]
+dfs_depth = 1
+co_dim = 5
+keep_prob = 1.0
+use_diagonal = True
+max_iter = 20
+niter = 5
+def translate_paramter(ps):
+	s = []
+	for p in ps:
+		if isinstance(p, list):
+			p = [str(i) for i in p]
+			p = '.'.join(p)
+			s.append(p)
+		else:
+			s.append(str(p))
+	s = '_'.join(s)
+	return s
+pname = translate_paramter([max_iter])
+
+def make_folder(folder):
+	if not os.path.exists(folder):
+		os.makedirs(folder)
+	return folder
+
+def create_propagate_networks(dname, l2i, onto_net, cls2cls, ontology_nlp_file, rsts = [0.5,0.6,0.7,0.8], diss=[2,3], thress=[1,0.8]):
+	ncls = np.shape(cls2cls)[0]
+	if dname != 'allen':
+		onto_net_nlp, onto_net_bin, stack_net_nlp, stack_net_bin, onto_net_nlp_all_pairs = create_nlp_networks(l2i, onto_net, cls2cls, ontology_nlp_file)
+		#network = create_consensus_networks(rsts, stack_net_nlp, onto_net_nlp_all_pairs, cls2cls)
+		network = create_consensus_networks(rsts, stack_net_nlp, onto_net_nlp_all_pairs, cls2cls, diss = diss, thress = thress)
+	else:
+		stack_net_bin = np.zeros((ncls,ncls))
+		for n1 in onto_net:
+			for n2 in onto_net[n1]:
+				if n1==n2:
+					continue
+				stack_net_bin[n1,n2] = 1
+				stack_net_bin[n2,n1] = 1
+		network = [RandomWalkRestart(stack_net_bin, rst) for rst in rsts]
+	return network
 
 
-mpl.rcParams['pdf.fonttype'] = 42
-MEDIUM_SIZE = 30
-BIGGER_SIZE = 50
-MIN_TRANSCRIPTS = 600
-plt.rc('font', size=MEDIUM_SIZE)		  # controls default text sizes
-plt.rc('axes', titlesize=MEDIUM_SIZE)	 # fontsize of the axes title
-plt.rc('axes', labelsize=MEDIUM_SIZE)	# fontsize of the x and y labels
-plt.rc('xtick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
-plt.rc('ytick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
-plt.rc('legend', fontsize=MEDIUM_SIZE)	# legend fontsize
-plt.rc('figure', titlesize=MEDIUM_SIZE)  # fontsize of the figure title
-
-def read_cell_type_nlp_network(nlp_emb_file, cell_type_network_file):
-	fin = open(cell_type_network_file)
-	co2co_graph = {}
-	for line in fin:
-		w = line.strip().split('\t')
-		if w[0] not in co2co_graph:
-			co2co_graph[w[0]] = set()
-		co2co_graph[w[0]].add(w[1])
-		if w[1] not in co2co_graph:
-			co2co_graph[w[1]] = set()
-		co2co_graph[w[1]].add(w[0])
-	fin.close()
-
-	fin = open(nlp_emb_file)
-	co2vec_nlp = {}
-	for line in fin:
-		w = line.strip().split('\t')
-		vec = []
-		for i in range(1,len(w)):
-			vec.append(float(w[i]))
-		co2vec_nlp[w[0]] = np.array(vec)
-	fin.close()
-	co2co_nlp = {}
-	for id1 in co2co_graph:
-		co2co_nlp[id1] = {}
-		for id2 in co2co_graph[id1]:
-			sc = 1 - spatial.distance.cosine(co2vec_nlp[id1], co2vec_nlp[id2])
-			co2co_nlp[id1][id2] = sc
-	return co2co_graph, co2co_nlp, co2vec_nlp
-
-def fine_nearest_co_using_nlp(sentences,co2emb,cutoff=0.8):
+def fine_nearest_co_using_nlp(sentences,co2emb,obo_file,nlp_mapping_cutoff=0.8):
+	co2name, name2co = get_ontology_name(obo_file = obo_file)
 	from sentence_transformers import SentenceTransformer
 	model = SentenceTransformer('bert-base-nli-mean-tokens')
+	sentences = np.array([sentence.lower() for sentence in sentences])
 	sentence_embeddings = model.encode(sentences)
 	co_embeddings = []
 	cos = []
@@ -89,392 +84,68 @@ def fine_nearest_co_using_nlp(sentences,co2emb,cutoff=0.8):
 
 		co_id = np.argmax(scs)
 		sc = scs[co_id]
-		if sc>cutoff:
-			sent2co[sentence] = cos[co_id]
+		if sc>nlp_mapping_cutoff:
+			sent2co[sentence.lower()] = cos[co_id]
+			names = set()
+			for name in name2co:
+				if name2co[name].upper() == cos[co_id]:
+					names.add(name)
+			#print (sentence, cos[co_id], sc, co2name[cos[co_id]],names)
 	return sent2co
 
-def map_26_datasets_cell2cid(use_detailed=False):
-	if not use_detailed:
-		onto_ids = ['CL:0000236','CL:0000235','CL:0000037','CL:0002338','CL:0000492','CL:0000815','CL:0000910','CL:0001054','CL:2000001','CL:0000813']#CL:0000910,0000815
-	else:
-		onto_ids = ['CL:0000236','CL:0000235','CL:0000037','CL:0002338','CL:0000492','CL:0000792','CL:0000794','CL:0001054','CL:2000001','CL:0000897']#CL:0000910,0000815
-	keywords = ['b_cells','infected','hsc','cd56_nk','cd4_t_helper','regulatory_t','cytotoxic_t','cd14_monocytes','pbmc','memory_t']
-	keyword2cname = {}
-	keyword2cname['b_cells'] = 'B cell'
-	keyword2cname['infected'] = 'Macrophage'
-	keyword2cname['hsc'] = 'HSC'
-	keyword2cname['cd56_nk'] = 'CD56+ NK'
-	keyword2cname['cd4_t_helper'] = 'CD4+ helper T'
-	keyword2cname['regulatory_t'] = 'Regulatory T'
-	keyword2cname['cytotoxic_t'] = 'Cytotoxic T'
-	keyword2cname['cd14_monocytes'] = 'CD14+ monocyte'
-	keyword2cname['pbmc'] = 'PBMC'
-	keyword2cname['memory_t'] = 'Memory T'
-	return onto_ids, keywords, keyword2cname
 
-def read_type2genes(g2i, DATA_DIR = '../../OnClass_data/'):
-	co2name, name2co = get_ontology_name(DATA_DIR = DATA_DIR)
-
-	c2cnew = {}
-	c2cnew['cd4+ t cell'] = 'CD4-positive, CXCR3-negative, CCR6-negative, alpha-beta T cell'.lower()
-	c2cnew['chromaffin cells (enterendocrine)'] = 'chromaffin cell'.lower()
-
-
-	c2cnew['mature NK T cell'] = 'mature NK T cell'.lower()
-	c2cnew['cd8+ t cell'] = 'CD8-positive, alpha-beta cytotoxic T cell'.lower()
-	fin = open(DATA_DIR + 'marker_genes/gene_marker_tms.txt')
-	fin.readline()
-	tp2genes = {}
-	unfound = set()
-	for line in fin:
-		w = line.strip().split('\t')
-		c1 = w[1].lower()
-		c2 = w[2].lower()
-		genes = []
-		for ww in w[8:]:
-			if ww.lower() in g2i:
-				genes.append(ww.lower())
-		if len(genes)==0:
-			continue
-		if c1.endswith('s') and c1[:-1] in name2co:
-			c1 = c1[:-1]
-		if c2.endswith('s') and c2[:-1] in name2co:
-			c2 = c2[:-1]
-		if c1 + ' cell' in name2co:
-			c1 +=' cell'
-		if c2 + ' cell' in name2co:
-			c2 +=' cell'
-		if c1 in c2cnew:
-			c1 = c2cnew[c1]
-		if c2 in c2cnew:
-			c2 = c2cnew[c2]
-		if c1 in name2co:
-			tp2genes[name2co[c1]] = genes
-		else:
-			unfound.add(c1)
-		if c2 in name2co:
-			tp2genes[name2co[c2]] = genes
-		else:
-			unfound.add(c2)
-	fin.close()
-
-	return tp2genes
-
-
-def get_rgb(n):
-	r = n/256/256
-	r = int(r)
-	g = n - r*256*256
-	g = g/256
-	g = int(g)
-	b = n%256
-	b = int(b)
-	return r,g,b
-
-def get_man_colors():
-	import matplotlib.colors as pltcolors
-
-	cmap = [plt.cm.get_cmap("tab20b")(0)] # Aorta
-	for i in range(3,5): # BAT, Bladder
-		cmap.append(plt.cm.get_cmap("tab20b")(i))
-	for i in range(6,9): # Brain_Myeloid, Brain_Non_Myeloid, Diaphgram
-		cmap.append(plt.cm.get_cmap("tab20b")(i))
-	for i in range(9,13): # GAT, Heart, Kidney, Large_Intestine
-		cmap.append(plt.cm.get_cmap("tab20b")(i))
-	print (cmap)
-	for i in range(14,20): # Limb_Muscle, Liver, Lung, MAT, Mammary_Gland, Marrow
-		cmap.append(plt.cm.get_cmap("tab20b")(i))
-	for i in range(0,20): # Pancreas, SCAT
-		cmap.append(plt.cm.get_cmap("tab20c")(i))
-	print (cmap)
-	manual_colors = []
-	for c in cmap:
-		manual_colors.append(pltcolors.to_hex(c))
-	print (manual_colors)
-	print (len(manual_colors))
-	return manual_colors
-
-def generate_colors(labels):
-	labels = np.unique(labels)
-	n = len(labels)
-
-	'''
-	man_colors = ['#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c', '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5', '#8c564b', '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f', '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5', '#8dd3c7', '#ffffb3', '#bebada', '#fb8072', '#80b1d3', '#fdb462', '#b3de69', '#fccde5', '#d9d9d9', '#bc80bd', '#ccebc5', '#ffed6f', '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999', '#621e15', '#e59076', '#128dcd', '#083c52', '#64c5f2', '#61afaf', '#0f7369', '#9c9da1', '#365e96', '#983334', '#77973d', '#5d437c', '#36869f', '#d1702f', '#8197c5', '#c47f80', '#acc484', '#9887b0', '#2d588a', '#58954c', '#e9a044', '#c12f32', '#723e77', '#7d807f', '#9c9ede', '#7375b5', '#4a5584', '#cedb9c', '#b5cf6b', '#8ca252', '#637939', '#e7cb94', '#e7ba52', '#bd9e39', '#8c6d31', '#e7969c', '#d6616b', '#ad494a', '#843c39', '#de9ed6', '#ce6dbd', '#a55194', '#7b4173', '#000000', '#0000FF']
-	man_colors = np.sort(man_colors)
-	'''
-	man_colors = get_man_colors()
-	nman_colors = len(man_colors)
-	man_step = int(np.floor(nman_colors*1./n))
-	#print (man_step)
-	#print (labels)
-	color_map = plt.cm.get_cmap('hsv', n)
-	marker = [".",",","o","v","^","<",">","1","2","3","4","8","s","p","P","*","h","H","+","x"]
-	lab2marker = {}
-	lab2col = {}
-	for i in range(n):
-		if n > len(man_colors):
-			lab2col[labels[i]] = color_map(i)
-		else:
-			lab2col[labels[i]] = man_colors[i*man_step]
-		lab2marker[labels[i]] = marker[i % len(marker)]
-	return lab2col, lab2marker
-
-
-def plot_umap(embedding, lab, lab2col, file,  lab2marker = None, legend=True, size=1,title='',legendmarker=10):
-
-	mpl.rcParams['pdf.fonttype'] = 42
-	SMALL_SIZE = 15
-	MEDIUM_SIZE = 15
-	BIGGER_SIZE = 30
-
-	plt.rc('font', size=SMALL_SIZE)		  # controls default text sizes
-	plt.rc('axes', titlesize=BIGGER_SIZE)	 # fontsize of the axes title
-	plt.rc('axes', labelsize=BIGGER_SIZE)	# fontsize of the x and y labels
-	plt.rc('xtick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
-	plt.rc('ytick', labelsize=MEDIUM_SIZE)	# fontsize of the tick labels
-	plt.rc('legend', fontsize=SMALL_SIZE)	# legend fontsize
-	plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
-
-
-	if np.shape(embedding)[1]!=2:
-		embedding = umap.UMAP(random_state = 1).fit_transform(embedding)
-	assert(np.shape(embedding)[1]==2)
-
-	plt.clf()
-
-	fig = plt.figure()
-	ax = fig.add_subplot(1,1,1)
-	for l in lab2col:
-		ind = np.where(lab==l)[0]
-		if len(ind)==0:
-			continue
-		if lab2marker is None:
-			plt.scatter(embedding[ind, 0], embedding[ind, 1],c=lab2col[l], label=l, s=size)
-		else:
-			plt.scatter(embedding[ind, 0], embedding[ind, 1],c=lab2col[l], label=l, s=size, marker=lab2marker[l])
-	#plt.title()
-	if legend:
-		plt.legend(loc='lower left',ncol=6,fontsize=6)
-	plt.suptitle(title)
-	plt.tick_params(
-	axis='x',		  # changes apply to the x-axis
-	which='both',	  # both major and minor ticks are affected
-	bottom=False,	  # ticks along the bottom edge are off
-	top=False,		 # ticks along the top edge are off
-	labelbottom=False) # labels along the bottom edge are off
-	plt.tick_params(
-	axis='y',		  # changes apply to the x-axis
-	which='both',	  # both major and minor ticks are affected
-	left=False,	  # ticks along the bottom edge are off
-	right=False,		 # ticks along the top edge are off
-	labelleft=False) # labels along the bottom edge are off
-	#plt.axis('off')
-	plt.xlabel('UMAP 1')
-	plt.ylabel('UMAP 2')
-	plt.tight_layout()
-	plt.savefig(file,dpi=100)
-	plt.savefig(file+'.png',dpi=100)
-	if legend:
-		return
-
-	handles,labels = ax.get_legend_handles_labels()
-
-	fig_legend = plt.figure(figsize=(20,20))
-	axi = fig_legend.add_subplot(111)
-	fig_legend.legend(handles, labels, loc='center', scatterpoints = 1, ncol=1, frameon=False,markerscale=legendmarker)
-	axi.xaxis.set_visible(False)
-	axi.yaxis.set_visible(False)
-	plt.savefig(file +'_legend.pdf',dpi=100)
-	plt.gcf().clear()
-
-def check_unseen_num(train_Y, test_Y):
-	train_Y = set(train_Y)
-	test_Y = set(test_Y)
-	inter = set(train_Y) & set(test_Y)
-	union = set(train_Y) | set(test_Y)
-	print ('%d %d %d %d' % (len(inter), len(union), len(test_Y) - len(inter), len(train_Y) - len(inter)))
-
-def parse_para(para_set):
-	method_name,split_method,combine_unseen,cell_dim,co_dim,premi,cellmi,comi=para_set.split('#')
-	combine_unseen = int(combine_unseen)
-	cell_dim = int(cell_dim)
-	co_dim = int(co_dim)
-	premi = int(premi)
-	cellmi = int(cellmi)
-	comi = int(comi)
-	return method_name,split_method,combine_unseen,cell_dim,co_dim,premi,cellmi,comi
-
-
-def load_tab(fname, max_genes=40000):
-	if fname.endswith('.gz'):
-		opener = gzip.open
-	else:
-		opener = open
-
-	with opener(fname, 'r') as f:
-		if fname.endswith('.gz'):
-			header = f.readline().decode('utf-8').rstrip().split('\t')
-		else:
-			header = f.readline().rstrip().split('\t')
-
-		cells = header[1:]
-		X = np.zeros((len(cells), max_genes))
-		genes = []
-		for i, line in enumerate(f):
-			if i > max_genes:
-				break
-			if fname.endswith('.gz'):
-				line = line.decode('utf-8')
-			fields = line.rstrip().split('\t')
-			genes.append(fields[0])
-			X[:, i] = [ float(f) for f in fields[1:] ]
-	return X[:, range(len(genes))], np.array(cells), np.array(genes)
-
-def load_mtx(dname):
-	with open(dname + '/matrix.mtx', 'r') as f:
-		while True:
-			header = f.readline()
-			if not header.startswith('%'):
-				break
-		header = header.rstrip().split()
-		n_genes, n_cells = int(header[0]), int(header[1])
-
-		data, i, j = [], [], []
-		for line in f:
-			fields = line.rstrip().split()
-			data.append(float(fields[2]))
-			i.append(int(fields[1])-1)
-			j.append(int(fields[0])-1)
-		X = csr_matrix((data, (i, j)), shape=(n_cells, n_genes))
-
-	genes = []
-	with open(dname + '/genes.tsv', 'r') as f:
-		for line in f:
-			fields = line.rstrip().split()
-			genes.append(fields[1])
-	assert(len(genes) == n_genes)
-
-	return X, np.array(genes)
-
-def load_h5(fname, genome='mm10'):
-	try:
-		import tables
-	except ImportError:
-		sys.stderr.write('Please install PyTables to read .h5 files: '
-						 'https://www.pytables.org/usersguide/installation.html\n')
-		exit(1)
-
-	# Adapted from scanpy's read_10x_h5() method.
-	with tables.open_file(str(fname), 'r') as f:
-		try:
-			dsets = {}
-			for node in f.walk_nodes('/' + genome, 'Array'):
-				dsets[node.name] = node.read()
-
-			n_genes, n_cells = dsets['shape']
-			data = dsets['data']
-			if dsets['data'].dtype == np.dtype('int32'):
-				data = dsets['data'].view('float32')
-				data[:] = dsets['data']
-
-			X = csr_matrix((data, dsets['indices'], dsets['indptr']),
-						   shape=(n_cells, n_genes))
-			genes = [ gene for gene in dsets['genes'].astype(str) ]
-			assert(len(genes) == n_genes)
-			assert(len(genes) == X.shape[1])
-
-		except tables.NoSuchNodeError:
-			raise Exception('Genome %s does not exist in this file.' % genome)
-		except KeyError:
-			raise Exception('File is missing one or more required datasets.')
-
-	return X, np.array(genes)
-
-
-def process_tab(fname, min_trans=MIN_TRANSCRIPTS):
-	X, cells, genes = load_tab(fname)
-
-	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
-			   if s >= min_trans ]
-	X = X[gt_idx, :]
-	cells = cells[gt_idx]
-	if len(gt_idx) == 0:
-		print('Warning: 0 cells passed QC in {}'.format(fname))
-	if fname.endswith('.txt'):
-		cache_prefix = '.'.join(fname.split('.')[:-1])
-	elif fname.endswith('.txt.gz'):
-		cache_prefix = '.'.join(fname.split('.')[:-2])
-	elif fname.endswith('.tsv'):
-		cache_prefix = '.'.join(fname.split('.')[:-1])
-	elif fname.endswith('.tsv.gz'):
-		cache_prefix = '.'.join(fname.split('.')[:-2])
-	else:
-		sys.stderr.write('Tab files should end with ".txt" or ".tsv"\n')
-		exit(1)
-
-	cache_fname = cache_prefix + '.npz'
-	np.savez(cache_fname, X=X, genes=genes)
-
-	return X, cells, genes
-
-def process_mtx(dname, min_trans=MIN_TRANSCRIPTS):
-	X, genes = load_mtx(dname)
-
-	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
-			   if s >= min_trans ]
-	X = X[gt_idx, :]
-	if len(gt_idx) == 0:
-		print('Warning: 0 cells passed QC in {}'.format(dname))
-
-	cache_fname = dname + '/tab.npz'
-	scipy.sparse.save_npz(cache_fname, X, compressed=False)
-
-	with open(dname + '/tab.genes.txt', 'w') as of:
-		of.write('\n'.join(genes) + '\n')
-
-	return X, genes
-
-def process_h5(fname, min_trans=MIN_TRANSCRIPTS):
-	X, genes = load_h5(fname)
-
-	gt_idx = [ i for i, s in enumerate(np.sum(X != 0, axis=1))
-			   if s >= min_trans ]
-	X = X[gt_idx, :]
-	if len(gt_idx) == 0:
-		print('Warning: 0 cells passed QC in {}'.format(fname))
-
-	if fname.endswith('.h5'):
-		cache_prefix = '.'.join(fname.split('.')[:-1])
-
-	cache_fname = cache_prefix + '.h5.npz'
-	scipy.sparse.save_npz(cache_fname, X, compressed=False)
-
-	with open(cache_prefix + '.h5.genes.txt', 'w') as of:
-		of.write('\n'.join(genes) + '\n')
-
-	return X, genes
-
-
-def write_anndata_data(test_label, test_AnnData, i2tp, name_mapping_file='../../../OnClass_data/cell_ontology/cl.obo'):
-	if len(np.shape(test_label))==2:
-		test_label = np.argmax(test_label, axis = 1)
-	co2name, name2co = get_ontology_name(name_mapping_file)
-	x = test_AnnData
-	ncell = np.shape(x.X)[0]
-	print (ncell, len(test_label))
-	assert(ncell == len(test_label))
-	test_name = []
-	test_label_id = []
+def ImputeUnseenCls(y_vec, y_raw, cls2cls, nseen, knn=1):
+	nclass = np.shape(cls2cls)[0]
+	seen2unseen_sim = cls2cls[:nseen, nseen:]
+	nngh = np.argsort(seen2unseen_sim*-1, axis = 0)[0,:]
+	ncell = len(y_vec)
+	y_mat = np.zeros((ncell, nclass))
+	y_mat[:,:nseen] = y_raw[:, :nseen]
 	for i in range(ncell):
-		xx = i2tp[test_label[i]]
-		test_label_id.append(xx)
-		test_name.append(co2name[xx])
-	test_name = np.array(test_name)
-	test_label_id = np.array(test_label_id)
-	x.obs['OnClass_annotation_ontology_ID'] = test_label
-	x.obs['OnClass_annotation_ontology_name'] = test_name
-	return x
+		if y_vec[i] == -1:
+			#kngh = np.argsort(y_raw[i,:nseen]*-1)[0:knn]
+			#if len(kngh) == 0:
+			#	continue
+			y_mat[i,nseen:] = y_mat[i,nngh]
+			y_mat[i,:nseen] -= 1000000
+	return y_mat
 
+
+def ImputeUnseenCls_Backup(y_vec, y_raw, cls2cls, nseen, knn=1):
+	nclass = np.shape(cls2cls)[0]
+	seen2unseen_sim = cls2cls[:nseen, nseen:]
+	ncell = len(y_vec)
+	y_mat = np.zeros((ncell, nclass))
+	y_mat[:,:nseen] = y_raw[:, :nseen]
+	for i in range(ncell):
+		if y_vec[i] == -1:
+			kngh = np.argsort(y_raw[i,:nseen]*-1)[0:knn]
+			if len(kngh) == 0:
+				continue
+			y_mat[i,:nseen] -= 1000000
+			y_mat[i,nseen:] = np.dot(y_raw[i,kngh], seen2unseen_sim[kngh,:])
+	return y_mat
+
+def find_gene_ind(genes, common_genes):
+	gid = []
+	for g in common_genes:
+		gid.append(np.where(genes == g)[0][0])
+	gid = np.array(gid)
+	return gid
+
+def RandomWalkOntology(onto_net, l2i, ontology_nlp_file, ontology_nlp_emb_file = '../OnClass_data/cell_ontology/cl.ontology.nlp.emb', rst = 0.7):
+	ncls = len(l2i)
+	onto_net_nlp, _, onto_nlp_emb = read_cell_ontology_nlp(l2i, ontology_nlp_file = ontology_nlp_file, ontology_nlp_emb_file = '../OnClass_data/cell_ontology/cl.ontology.nlp.emb')
+	onto_net_nlp = (cosine_similarity(onto_nlp_emb) + 1 ) /2#1 - spatial.distance.cosine(onto_nlp_emb, onto_nlp_emb)
+	onto_net_mat = np.zeros((ncls, ncls))
+	for n1 in onto_net:
+		for n2 in onto_net[n1]:
+			if n1==n2:
+				continue
+			onto_net_mat[n1,n2] = onto_net_nlp[n1, n2]
+			onto_net_mat[n2,n1] = onto_net_nlp[n2, n1]
+	onto_net_rwr = RandomWalkRestart(onto_net_mat, rst)
+	return onto_net_rwr
 
 def process_expression(c2g_list):
 	#this data process function is motivated by ACTINN, please check ACTINN for more information.
@@ -507,166 +178,166 @@ def process_expression(c2g_list):
 		index = ncell
 	return c2g_list_new
 
-def read_data(feature_file, cell_ontology_ids, AnnData_label_key=None, nlp_mapping = True, nlp_mapping_cutoff = 0.8, co2emb = None, label_file=None, return_genes=True, return_AnnData=False):
-	has_label = True
-
-	if not os.path.isfile(feature_file):
-		sys.exit('%s not exist' % feature_file)
-	if AnnData_label_key is None and label_file is None:
-		print ('no label file is provided')
-		has_label = False
-	if feature_file.endswith('.h5ad'):
-		x = read_h5ad(feature_file)
-		ncell = np.shape(x.X)[0]
-		dataset = x.X
-		genes = x.var.index
-
-		if AnnData_label_key is not None:
-			labels = np.array(x.obs[AnnData_label_key].tolist())
-
-	elif feature_file.endswith('.mtx'):
-		process_mtx(feature_file, min_trans=min_trans)
-	elif feature_file.endswith('.h5'):
-		process_h5(feature_file, min_trans=min_trans)
-	elif feature_file.endswith(name):
-		process_tab(feature_file, min_trans=min_trans)
-	elif feature_file.endswith(name + '.txt'):
-		process_tab(feature_file + '.txt', min_trans=min_trans)
-	elif feature_file.endswith(name + '.txt.gz'):
-		process_tab(feature_file + '.txt.gz', min_trans=min_trans)
-	elif feature_file.endswith(name + '.tsv'):
-		process_tab(feature_file + '.tsv', min_trans=min_trans)
-	elif feature_file.endswith(name + '.tsv.gz'):
-		process_tab(feature_file + '.tsv.gz', min_trans=min_trans)
+def read_ontology_file(dname, data_folder):
+	if 'allen' in dname:
+		cell_type_network_file = data_folder + '/cell_ontology/allen.ontology'
+		cell_type_nlp_emb_file = None
+		cl_obo_file = None
 	else:
-		sys.exit('wrong file format. Please use the file with suffix of .mtx, .h5ad, .h5, .txt, .txt.gz, .tsv, .tsv.gz')
-	if label_file is not None and os.path.isfile(label_file):
-		fin = open(label_file)
-		labels = []
-		for line in fin:
-			labels.append(line.strip())
-		fin.close()
-		labels = np.array(labels)
-	if has_label:
-		if nlp_mapping:
-			lab2co = fine_nearest_co_using_nlp(np.unique(labels), co2emb, cutoff=nlp_mapping_cutoff)
-		ind = []
-		lab_id = []
-		unfound_labs = set()
-		for i,l in enumerate(labels):
-			if l in cell_ontology_ids:
-				ind.append(i)
-				lab_id.append(l)
-			elif l in lab2co:
-				ind.append(i)
-				lab_id.append(lab2co[l])
-			else:
-				unfound_labs.add(l)
-		frac = len(ind) * 1. / len(labels)
-		#print ('%f precentage of labels are in the Cell Ontology' % (frac * 100))
-		warn_message = 'Only: '+ '%f precentage of labels are in the Cell Ontology' % (frac * 100) + 'The remaining cells are excluded!'
-		print (warn_message)
-		if frac<0.5:
-			warnings.warn(warn_message)
-		ind = np.array(ind)
-		lab_id = np.array(lab_id)
+		cell_type_network_file = data_folder + '/cell_ontology/cl.ontology'
+		cell_type_nlp_emb_file = data_folder + '/cell_ontology/cl.ontology.nlp.emb'
+		cl_obo_file = data_folder + '/cell_ontology/cl.obo'
+	return cell_type_nlp_emb_file, cell_type_network_file, cl_obo_file
 
-		labels = np.array(labels)
-		dataset = dataset[ind, :]
-		labels = labels[ind]
-		if return_AnnData:
-			return dataset, genes, labels, x[ind,:]
-		else:
-			return dataset, genes, labels
+def read_data_file(dname, data_dir):
+
+	if 'microcebus' in dname:
+		tech = '10x'
+		feature_file = data_dir + 'TMS_official_060520/' + dname +'.h5ad'
+		filter_key={'method':tech }
+		label_file = None
+		gene_file = ''
+		label_key = 'cell_ontology_class'
+	elif 'muris' in dname:
+		tech = dname.split('_')[1]
+		feature_file = data_dir + 'TMS_official_060520/' + 'tabula-muris-senis-'+tech+'-official-raw-obj.h5ad'
+		filter_key = {}
+		label_file = None
+		gene_file = ''
+		batch_key = ''
+		label_key = 'cell_ontology_class'
+	elif 'sapiens' in dname:
+		feature_file = data_dir + 'sapiens/' + 'Pilot1_Pilot2_decontX_Oct2020.h5ad'
+		filter_key = {}
+		label_file = None
+		gene_file = ''
+		batch_key = ''
+		label_key = 'cell_ontology_type'
+	elif 'allen' in dname:
+		feature_file = data_dir + '/Allen/features.pkl'
+		label_file = data_dir + '/Allen/labels.pkl'
+		gene_file = data_dir + '/Allen/genes.pkl'
+		label_key = ''
+		filter_key = {}
+	elif 'krasnow' in dname:
+		tech = dname.split('_')[1]
+		feature_file = data_dir + 'Krasnow/'+tech+'_features.pkl'
+		label_file = data_dir + 'Krasnow/'+tech+'_labels.pkl'
+		gene_file = data_dir + 'Krasnow/'+tech+'_genes.pkl'
+		label_key = ''
+		filter_key = {}
 	else:
-		if return_AnnData:
-			return dataset, genes, x
+		sys.exit('wrong dname '+dname)
+	if feature_file.endswith('.pkl'):
+		return feature_file, filter_key, label_key, label_file, gene_file
+	elif feature_file.endswith('.h5ad'):
+		return feature_file, filter_key, label_key, label_file, gene_file
+	sys.exit('wrong file suffix')
+
+def read_singlecell_data(dname, data_dir, nsample = 500000000, read_tissue = False, exclude_non_leaf_ontology = True):
+	if 'microcebus' in dname:
+		tech = '10x'
+		#file = data_dir + 'TMS_official_060520/' + 'tabula-microcebus_smartseq2-10x_combined_annotated_filtered_gene-labels-correct.h5ad'
+		file = data_dir + 'TMS_official_060520/' + dname +'.h5ad'
+		filter_key={'method':tech }
+		batch_key = ''#original_channel
+		ontology_nlp_file = '../OnClass_data/cell_ontology/cl.ontology.nlp'
+		ontology_file = '../OnClass_data/cell_ontology/cl.ontology'
+		if not read_tissue:
+			feature, label, genes = parse_h5ad(file, nsample = nsample, read_tissue = read_tissue, label_key='cell_ontology_class', batch_key = batch_key, filter_key = filter_key, cell_ontology_file = ontology_file, exclude_non_leaf_ontology = exclude_non_leaf_ontology, exclude_non_ontology = True, DATA_DIR = '../OnClass_data/')
 		else:
-			return dataset, genes
+			feature, label, genes, tissues = parse_h5ad(file, nsample = nsample, read_tissue = read_tissue, label_key='cell_ontology_class', batch_key = batch_key, filter_key = filter_key, cell_ontology_file = ontology_file, exclude_non_leaf_ontology = exclude_non_leaf_ontology, exclude_non_ontology = True, DATA_DIR = '../OnClass_data/')
+	elif 'muris' in dname:
+		tech = dname.split('_')[1]
+		file = data_dir + 'TMS_official_060520/' + 'tabula-muris-senis-'+tech+'-official-raw-obj.h5ad'
+		filter_key = {}
+		batch_key = ''
+		ontology_nlp_file = '../OnClass_data/cell_ontology/cl.ontology.nlp'
+		ontology_file = '../OnClass_data/cell_ontology/cl.ontology'
+		if not read_tissue:
+			feature, label, genes = parse_h5ad(file,  nsample = nsample, read_tissue = read_tissue, label_key='cell_ontology_class', batch_key = batch_key, cell_ontology_file = ontology_file, filter_key=filter_key, exclude_non_leaf_ontology = exclude_non_leaf_ontology, exclude_non_ontology = True, DATA_DIR = '../OnClass_data/')
+		else:
+			feature, label, genes, tissues = parse_h5ad(file, nsample = nsample, read_tissue = read_tissue, label_key='cell_ontology_class', batch_key = batch_key, cell_ontology_file = ontology_file, filter_key=filter_key, exclude_non_leaf_ontology = exclude_non_leaf_ontology, exclude_non_ontology = True, DATA_DIR = '../OnClass_data/')
+	elif 'allen_part' in dname:
+		feature_file = data_dir + 'Allen/matrix_part.csv'
+		label_file = data_dir + 'Allen/metadata.csv'
+		ontology_file = data_dir + 'Allen/cell_type_ontology'
+		ontology_nlp_file = None
+		feature, label, genes = parse_csv(feature_file, label_file, nsample = nsample, label_key='cell_type_accession_label', exclude_non_ontology = True, exclude_non_leaf_ontology = True, cell_ontology_file=ontology_file)
+	elif 'allen' in dname:
+		feature_file = data_dir + 'Allen/features.pkl'
+		label_file = data_dir + 'Allen/labels.pkl'
+		gene_file = data_dir + 'Allen/genes.pkl'
+		ontology_file = data_dir + 'Allen/cell_type_ontology'
+		ontology_nlp_file = None
+		feature, label, genes = parse_pkl(feature_file, label_file, gene_file, nsample = nsample, exclude_non_leaf_ontology = True, cell_ontology_file=ontology_file)
+	elif 'krasnow' in dname:
+		tech = dname.split('_')[1]
+		feature_file = data_dir + 'Krasnow/'+tech+'_features.pkl'
+		label_file = data_dir + 'Krasnow/'+tech+'_labels.pkl'
+		gene_file = data_dir + 'Krasnow/'+tech+'_genes.pkl'
+		ontology_file = '../OnClass_data/cell_ontology/cl.ontology'
+		ontology_nlp_file = '../OnClass_data/cell_ontology/cl.ontology.nlp'
+		feature, label, genes = parse_pkl(feature_file, label_file, gene_file, nsample = nsample,  exclude_non_leaf_ontology = True, cell_ontology_file=ontology_file)
+	else:
+		sys.exit('wrong dname '+dname)
+	if read_tissue:
+		return feature, label, genes, tissues, ontology_nlp_file, ontology_file
+	else:
+		return feature, label, genes, ontology_nlp_file, ontology_file
 
 
 
-
-def read_data_TMS(filename,seed=1,nsample=3000000,dlevel='cell_ontology_class_reannotated',exclude_tissues=['marrow'], return_genes=False,
-cell_type_name_file = '../../OnClass_data/cl.obo'):
-	name2co = get_ontology_name(cell_type_name_file = cell_type_name_file)[1]
+def parse_krasnow(feature_file, label_file, gene_file, seed = 1, nsample = 1000,exclude_non_leaf_ontology = True, exclude_non_ontology = True, cell_ontology_file=None):
 	np.random.seed(seed)
-	if 'facs' in filename:
-		tech = 'facs'
-	elif 'droplet' in filename:
-		tech = 'droplet'
-	else:
-		tech = ''
-	if not os.path.isfile(filename):
-		sys.exit('%s not exist' % filename)
-	x = read_h5ad(filename)
 
-	ncell = np.shape(x.X)[0]
-	dataset = x.X
-	months = np.array(x.obs['age'].tolist())
-	labels = np.array(x.obs[dlevel].tolist())
-	tissues = np.array(x.obs['tissue'].tolist())
+	if feature_file.endswith('.pkl'):
+		features = pickle.load(open(feature_file, 'rb'))
+		labels = pickle.load(open(label_file, 'rb'))
+		genes = pickle.load(open(gene_file, 'rb'))
+		ncell, ngene = np.shape(features)
+		assert(ncell == len(labels))
+		assert(ngene == len(genes))
+		index = np.random.choice(ncell,min(nsample,ncell),replace=False)
+		features = features[index, :]
+		labels = labels[index]
+	if exclude_non_leaf_ontology:
+		new_ids, exclude_terms = exclude_parent_child_nodes(cell_ontology_file, labels)
+		#print (len(exclude_terms),'non leaf terms are excluded')
+		features = features[new_ids, :]
+		labels = labels[new_ids]
+	genes = [x.upper() for x in genes]
+	genes = np.array(genes)
+	return features, labels, genes
 
-	ind = []
-	for i in range(ncell):
-		tis = tissues[i]
-		lab = labels[i]
-		if tis.lower() in exclude_tissues or lab.lower() not in name2co:
-			#print ('%s %s' % (tis, lab))
-			continue
-		ind.append(i)
-	ind = np.array(ind)
-	dataset = dataset[ind,:]
-	months = months[ind]
-	labels = labels[ind]
-	tissues = tissues[ind]
-	annot = [name2co[y.lower()] for y in labels]
-	annot = np.array(annot)
+def parse_pkl(feature_file, label_file, gene_file, seed = 1, nsample = 10000000,exclude_non_leaf_ontology = True, cell_ontology_file=None):
+	np.random.seed(seed)
+	if feature_file.endswith('.pkl'):
+		features = pickle.load(open(feature_file, 'rb'))
+		labels = pickle.load(open(label_file, 'rb'))
+		genes = pickle.load(open(gene_file, 'rb'))
+		ncell, ngene = np.shape(features)
+		assert(ncell == len(labels))
+		assert(ngene == len(genes))
+		index = np.random.choice(ncell,ncell,replace=False)
+		features = features[index, :]
+		labels = labels[index]
+	if exclude_non_leaf_ontology:
+		new_ids, exclude_terms = exclude_parent_child_nodes(cell_ontology_file, labels)
+		#print (len(exclude_terms),'non leaf terms are excluded')
+		features = features[new_ids, :]
+		labels = labels[new_ids]
+	genes = [x.upper() for x in genes]
+	genes = np.array(genes)
+	return features, labels, genes
 
-	datanames = []
-	genes_list = {}
-	labels = {}
-	datasets = {}
-	types = {}
-	month_labels = {}
-	uniq_age = np.unique(months)
-	for m in uniq_age:
-		dataname = tech+m
-		datanames.append(dataname)
-		index = np.array(months == m)
-		datasets[dataname] = dataset[index,:]
-		genes_list[dataname] = x.var.index
-		labels[dataname] = annot[index]
-		month_labels[dataname] = np.full(len(annot), len(index))
-		types[dataname] = Counter(np.array(annot)[index])
-	all_X, all_Y = extract_data(datanames, datasets, labels)
-	if return_genes:
-		return all_X, all_Y, genes_list
-	else:
-		return all_X, all_Y
-
-
-def extract_data(datanames, datasets, labels):
-	#datanames = np.sort(datanames)
-	mat = []
-	Y = []
-	for di,dataname in enumerate(datanames):
-		Y.append(labels[dataname])
-		mat.append(datasets[dataname])
-	Y = np.concatenate(Y)
-	mat = sparse.vstack(mat)
-	return mat, Y
-
-def emb_cells_scan(train_X, test_X, dim=20):
-	train_X = np.log1p(train_X)
-	test_X = np.log1p(test_X)
-	train_X = preprocessing.normalize(train_X, axis=1)
-	test_X = preprocessing.normalize(test_X, axis=1)
-	ntrain = np.shape(train_X)[0]
-	mat = sparse.vstack((train_X, test_X))
-	U, s, Vt = pca(mat, k=dim) # Automatically centers.
-	X = U[:, range(dim)] * s[range(dim)]
-	return X[:ntrain,:], X[ntrain:,:]
+def select_high_var_genes(train_X, test_X, ngene = 200):
+	mat = np.vstack((train_X, test_X))
+	#mat = mat.todense()
+	gstd = np.std(mat, axis=0)
+	best_genes = np.argsort(gstd*-1)
+	best_genes = best_genes[:ngene]
+	return train_X[:, best_genes], test_X[:, best_genes]
 
 def emb_cells(train_X, test_X, dim=20):
 	if dim==-1:
@@ -680,136 +351,657 @@ def emb_cells(train_X, test_X, dim=20):
 	U, s, Vt = pca(mat, k=dim) # Automatically centers.
 	X = U[:, range(dim)] * s[range(dim)]
 	return X[:ntrain,:], X[ntrain:,:]
-	'''
-	ntrain = np.shape(train_X)[0]
-	if log1p:
-		train_X = np.log1p(train_X)
-		test_X = np.log1p(test_X)
-	if norm:
-		train_X = preprocessing.normalize(train_X, axis=1)
-		test_X = preprocessing.normalize(test_X, axis=1)
-	mat = sparse.vstack((train_X, test_X))
-	if mi == 0:
-		X = svd_emb(mat, dim=dim)
-	else:
-		sys.exit('wrong emb method')
-	return X[:ntrain,:], X[ntrain:,:]
-	'''
 
-def svd_emb(mat, dim=20):
-	U, S, V = svds(mat, k=dim)
-	X = np.dot(U, np.sqrt(np.diag(S)))
-	return X
+def write_markers(fname, markers):
+	## Write marker genes to file
+	fmarker_genes = open(fname,'w')
+	for t in markers:
+		fmarker_genes.write(t+'\t')
+		g2pv = sorted(markers[t].items(), key=lambda item: item[1])
+		for g,pv in g2pv:
+			fmarker_genes.write(g+'(pv:'+'{:.2e}'.format(pv)+')\t')
+		fmarker_genes.write('\n')
+	fmarker_genes.close()
 
-def precision_at_k(pred,truth,k):
-	ncell, nclass = np.shape(pred)
-	hit = 0.
+
+def calculate_markers(cell2term, cell2gene, genes, terms, topk_cells=500, only_over_expressed = True, return_k_genes = 100):
+	ncell, nterm = np.shape(cell2term)
+	ngene = np.shape(cell2gene)[1]
+	assert(ncell == np.shape(cell2gene)[0])
+	markers = collections.defaultdict(dict)
+	for t in range(nterm):
+		scs = np.argsort(cell2term[:,t])
+		k_bot_cells = scs[:topk_cells]
+		k_top_cells = scs[ncell-topk_cells:]
+		pv = scipy.stats.ttest_ind(cell2gene[k_top_cells,:], cell2gene[k_bot_cells,:], axis=0)[1] #* ngene
+		top_mean = np.mean(cell2gene[k_top_cells,:],axis=0)
+		bot_mean = np.mean(cell2gene[k_bot_cells,:],axis=0)
+		if only_over_expressed:
+			for g in range(ngene):
+				if top_mean[g] < bot_mean[g]:
+					pv[g] = 1.
+		pv_sort = list(np.argsort(pv))
+		#for i in range(return_k_genes):
+		#markers[terms[t]][genes[pv_sort[i]]] = pv[pv_sort[i]]
+		markers[terms[t]] = pv
+		for i,p in enumerate(pv):
+			if np.isnan(p):
+				pv[i] = 1.
+			#markers[terms[t]][str(pv_sort[i])] = pv[pv_sort[i]]
+	return markers
+
+def peak_h5ad(file):
+	'''
+	peak the number of cells, classes, genes in h5ad file
+	'''
+	x = read_h5ad(file)
+	#print (np.shape(x.X))
+	#print (x.X[:10][:10])
+	#print (x.obs.keys())
+	ncell, ngene = np.shape(x.X)
+	nclass = len(np.unique(x.obs['free_annotation']))
+	#print (np.unique(x.obs['free_annotation']))
+	f2name = {}
+	sel_cell = 0.
 	for i in range(ncell):
-		x = np.argsort(pred[i,:]*-1)
-		rank = np.where(x==truth[i])[0][0]
-		if rank < k:
-			hit += 1.
-	prec = hit / ncell
-	return prec
+		if x.obs['method'][i]!='10x':
+			continue
+
+		free = x.obs['free_annotation'][i]
+		name = x.obs['cell_ontology_class'][i]
+		f2name[free] = name
+		sel_cell += 1
+	#return f2name
+	#for key in x.obs.keys():
+	#	print (key, np.unique(x.obs[key]))
+	return sel_cell, ngene, nclass
+	#for i in range(10):
+	#	print (x.obs['method'][i], x.obs['channel_no_10x'][i])
+	#for key in x.obs.keys():
+	#	print (key, np.unique(x.obs[key]))
+	#return index
 
 
-def extend_accuracy(test_Y, test_Y_pred_vec, Y_net, unseen_l):
-	unseen_l = set(unseen_l)
-	n = len(test_Y)
-	acc = 0.
-	ntmp = 0.
-	new_pred = []
-	for i in range(n):
-		if test_Y[i] in unseen_l and test_Y_pred_vec[i] in unseen_l:
-			if test_Y_pred_vec[i] in Y_net[test_Y[i]] and Y_net[test_Y[i]][test_Y_pred_vec[i]] == 1:
-				acc += 1
-				ntmp += 1
-				new_pred.append(test_Y[i])
-			else:
-				new_pred.append(test_Y_pred_vec[i])
+def get_onotlogy_parents(GO_net, g):
+	term_valid = set()
+	ngh_GO = set()
+	ngh_GO.add(g)
+	while len(ngh_GO) > 0:
+		for GO in list(ngh_GO):
+			for GO1 in GO_net[GO]:
+				ngh_GO.add(GO1)
+			ngh_GO.remove(GO)
+			term_valid.add(GO)
+	return term_valid
+
+def exclude_non_ontology_term(labels, label_key, DATA_DIR = '../../OnClass_data/'):
+	co2name, name2co = get_ontology_name()
+	new_labs = []
+	new_ids = []
+	if label_key!='cell_ontology_class' and label_key!='cell_ontology_id':
+		use_co = False
+		for kk in np.unique(labels):
+			if kk.lower().startswith('cl:'):
+				use_co = True
+				break
+	else:
+		if label_key == 'cell_ontology_class':
+			use_co = False
 		else:
-			if test_Y[i] == test_Y_pred_vec[i]:
-				acc += 1
-			new_pred.append(test_Y_pred_vec[i])
-	new_pred = np.array(new_pred)
-	return acc/n, new_pred
+			use_co = True
+	for i in range(len(labels)):
+		l = labels[i]
+		if not use_co:
+			if l.lower() in name2co.keys():
+				new_labs.append(name2co[l.lower()])
+				new_ids.append(i)
+		else:
+			if l.lower() in co2name.keys():
+				new_labs.append(l.lower())
+				new_ids.append(i)
+	new_labs = np.array(new_labs)
+	new_ids = np.array(new_ids)
+	return new_ids, new_labs
 
 
-def evaluate(test_Y_pred, train_Y, test_Y, unseen_l, test_Y_pred_vec = None, combine_unseen = False):
+def parse_raw_h5ad(file,seed=1,nsample=1e10,tissue_key='tissue',label_key='cell_ontology_class', read_tissue = True, batch_key = '', filter_key={}, cell_ontology_file = None, exclude_non_leaf_ontology = True, exclude_non_ontology=True, DATA_DIR = '../../OnClass_data/'):
+	np.random.seed(seed)
+	x = read_h5ad(file)
 
-	Y_ind = np.array(list(set(test_Y) |  set(train_Y)))
-	Y_ind = np.sort(Y_ind)
-	ncell,nclass = np.shape(test_Y_pred)
-	nseen = nclass - len(unseen_l)
-
-	if Y_ind is not None:
-		non_Y_ind = np.array(list(set(range(nclass)) - set(Y_ind)))
-		#print (non_Y_ind)
-		test_Y_pred[:,non_Y_ind] = -1 * np.inf
-
-	unseen_l = np.array(list(unseen_l))
-	test_Y = np.array(test_Y)
-	if combine_unseen:
-		unseen_l = [nseen]
-		test_Y[test_Y>=nseen] = nseen
-		test_Y_pred_new = np.zeros((ncell, nseen+1))
-		test_Y_pred_new[:,:nseen] = test_Y_pred[:, :nseen]
-		test_Y_pred_new[:,nseen] = np.max(test_Y_pred[:, nseen:],axis=1)
-		test_Y_pred = test_Y_pred_new
-
-	test_Y_truth = np.zeros((ncell, nclass))
-	for i in range(ncell):
-		test_Y_truth[i,test_Y[i]] = 1
-
-	class_auc_macro = np.full(nclass, np.nan)
-	for i in range(nclass):
-		if len(np.unique(test_Y_truth[:,i]))==2:
-			class_auc_macro[i] = roc_auc_score(test_Y_truth[:,i], test_Y_pred[:,i])
-	if test_Y_pred_vec is None:
-		test_Y_pred_vec = np.argmax(test_Y_pred, axis=1)
-	kappa = cohen_kappa_score(test_Y_pred_vec, test_Y)
-	prec_at_k_3 = precision_at_k(test_Y_pred, test_Y, 3)
-	prec_at_k_5 = precision_at_k(test_Y_pred, test_Y, 5)
-
-	sel_c = []
-	for i in unseen_l:
-		sel_c.extend(np.where(test_Y == i)[0])
-	sel_c = np.array(sel_c)
-
-	if len(sel_c)<=1:
-		print ('Warning, very few unseen points:%d',len(sel_c))
-	if len(unseen_l) == 0:
-		unseen_auc_macro = 0
+	ncell = np.shape(x.raw.X)[0]
+	select_cells = set(range(ncell))
+	for key in filter_key:
+		value = filter_key[key]
+		select_cells = select_cells & set(np.where(np.array(x.obs[key])==value)[0])
+	select_cells = sorted(select_cells)
+	feature = x.raw.X[select_cells, :]
+	labels = np.array(x.obs[label_key].tolist())[select_cells]
+	if read_tissue:
+		tissues = np.array(x.obs[tissue_key].tolist())[select_cells]
+	if batch_key=='' or batch_key not in x.obs.keys():
+		batch_labels = np.ones(len(labels))
 	else:
-		unseen_auc_macro = np.nanmean(class_auc_macro[unseen_l])
-	res_v = {}
-	res_v['prec_at_k_3'] = prec_at_k_3
-	res_v['prec_at_k_5'] = prec_at_k_5
-	res_v['kappa'] = kappa
-	res_v['unseen_auc_macro'] = unseen_auc_macro
-	res_v['class_auc_macro'] = np.nanmean(class_auc_macro)
-	return res_v
+		batch_labels = np.array(x.obs[batch_key].tolist())[select_cells]
+	genes = x.var.index
+	ncell = len(select_cells)
+	if exclude_non_ontology:
+		new_ids, labels = exclude_non_ontology_term(labels, label_key, DATA_DIR = DATA_DIR)
+		feature = feature[new_ids, :]
+		batch_labels = batch_labels[new_ids]
+	if exclude_non_leaf_ontology:
+		new_ids, exclude_terms = exclude_parent_child_nodes(cell_ontology_file, labels)
+		#print (len(exclude_terms),'non leaf terms are excluded')
+		feature = feature[new_ids, :]
+		batch_labels = batch_labels[new_ids]
+		labels = labels[new_ids]
+		if read_tissue:
+			tissues = tissues[new_ids]
+	ncell = len(labels)
+	index = np.random.choice(ncell,min(nsample,ncell),replace=False)
+	batch_labels = batch_labels[index]
+	feature = feature[index, :] # cell by gene matrix
+	labels = labels[index]
+	if read_tissue:
+		tissues = tissues[index]
+	genes = x.var.index
+	corrected_feature = run_scanorama_same_genes(feature, batch_labels)
+	corrected_feature = corrected_feature.toarray()
+	genes = [x.upper() for x in genes]
+	genes = np.array(genes)
+	if read_tissue:
+		assert(len(tissues) == len(labels))
+		return corrected_feature, labels, genes, tissues
+	else:
+		return corrected_feature, labels, genes
+
+def select_cells_based_on_keys(x, features, tissues = None, labels = None, filter_key = None):
+	ncell = np.shape(x.X)[0]
+	select_cells = set(range(ncell))
+	for key in filter_key:
+		value = filter_key[key]
+		select_cells = select_cells & set(np.where(np.array(x.obs[key])==value)[0])
+	select_cells = sorted(select_cells)
+	features = features[select_cells,: ]
+	if labels is not None:
+		labels = labels[select_cells]
+	if tissues is not None:
+		tissues = tissues[select_cells]
+	x = x[select_cells,:]
+	return features, labels, tissues, x
+
+def find_marker_genes(train_X, pred_Y_all, genes, i2l, topk = 50):
+	cor = corr2_coeff(pred_Y_all[:,:].T, train_X[:,:].T)
+	cor = np.nan_to_num(cor) # cell type to gene
+	nl = len(i2l)
+	c2g = {}
+	for i in range(nl):
+		gl = np.argsort(cor[i,:]*-1)
+		c2g[i2l[i]] = {}
+		for j in range(topk):
+			c2g[i2l[i]][genes[gl[j]]] = cor[i, gl[j]]
+	return c2g, cor
 
 
-def get_ontology_name(cell_type_name_file):
-	fin = open(cell_type_name_file)
-	co2name = {}
-	name2co = {}
-	tag_is_syn = {}
+def use_pretrained_model(OnClass, genes, test_X, models = []):
+	last_l2i = {}
+	last_i2l = {}
+
+	pred_Y_all_models = 0.
+	ngene = len(genes)
+	for model in models:
+		OnClass.BuildModel(OnClass.co2emb, ngene = ngene, use_pretrain = model)
+		print ('Build model finished for ',model)
+		pred_Y_seen, pred_Y_all, pred_label = OnClass.Predict(test_X, test_genes = genes)
+		print ('Predict for ',model)
+		pred_Y_all = pred_Y_all.T / (pred_Y_all.T.sum(axis=1)[:, np.newaxis] + 1)
+		pred_Y_all = pred_Y_all.T
+		if len(last_l2i)>0:
+			new_ct_ind = []
+			for i in range(len(last_i2l)):
+				l = last_i2l[i]
+				new_ct_ind.append(OnClass.co2i[l])
+			pred_Y_all = pred_Y_all[:, np.array(new_ct_ind)]
+			pred_Y_all_models += pred_Y_all
+		else:
+			last_l2i = OnClass.co2i
+			last_i2l = OnClass.i2co
+			pred_Y_all_models = pred_Y_all
+	return pred_Y_all_models
+
+
+def read_data(feature_file, cell_ontology_ids, exclude_non_leaf_ontology = False, ct_mapping_key = {}, tissue_key = None, seed = 1, filter_key = None, AnnData_label_key=None, nlp_mapping = True, nlp_mapping_cutoff = 0.8, co2emb = None, label_file=None, cl_obo_file = None, cell_ontology_file = None):
+	np.random.seed(seed)
+	x = read_h5ad(feature_file)
+	ncell = np.shape(x.X)[0]
+	dataset = x.X.toarray()
+	genes = np.array([x.upper() for x in x.var.index])
+
+	if tissue_key is not None:
+		tissues = np.array(x.obs['tissue'].tolist())
+	else:
+		tissues = None
+	if AnnData_label_key is None and label_file is None:
+		print ('no label file is provided')
+		labels = None
+		dataset, labels, tissues, x = select_cells_based_on_keys(x, dataset, labels = labels, tissues = tissues, filter_key = filter_key)
+		return dataset, genes, labels, tissues, x
+	if AnnData_label_key is not None:
+		labels = x.obs[AnnData_label_key].tolist()
+	else:
+		fin = open(label_file)
+		labels = []
+		for line in fin:
+			labels.append(line.strip())
+		fin.close()
+	labels = np.array(labels)
+	dataset, labels, tissues, x = select_cells_based_on_keys(x, dataset, labels = labels, tissues = tissues, filter_key = filter_key)
+	ind, labels, unfound_labs = map_and_select_labels(labels, cell_ontology_ids, cl_obo_file, ct_mapping_key = ct_mapping_key, nlp_mapping = nlp_mapping, co2emb = co2emb, nlp_mapping_cutoff = nlp_mapping_cutoff, cl_obo_file = cl_obo_file)
+	if tissue_key is not None:
+		tissues = tissues[ind]
+	dataset = dataset[ind, :]
+	x = x[ind, :]
+	if exclude_non_leaf_ontology:
+		new_ids, exclude_terms = exclude_parent_child_nodes(cell_ontology_file, labels)
+		tissues = tissues[new_ids]
+		dataset = dataset[new_ids, :]
+		labels = labels[new_ids]
+		x = x[new_ids, :]
+
+	ncell = np.shape(dataset)[0]
+	index = np.random.choice(ncell,ncell,replace=False)
+	dataset = dataset[index, :] # cell by gene matrix
+	labels = labels[index]
+	if tissue_key is not None:
+		tissues = tissues[index]
+	return dataset, genes, labels, tissues, x
+
+def exact_match_co_name_2_co_id(labels, lab2co, cl_obo_file = None):
+	if cl_obo_file is None:
+		return lab2co
+	co2name, name2co = get_ontology_name(obo_file = cl_obo_file)
+	for label in labels:
+		if label.lower() in name2co:
+			lab2co[label.lower()] = name2co[label.lower()]
+	for name in name2co:
+		lab2co[name.lower()] = name2co[name]
+	return lab2co
+
+
+def map_and_select_labels(labels, cell_ontology_ids, obo_file, ct_mapping_key = {}, nlp_mapping = True, nlp_mapping_cutoff = 0.8, co2emb = None, cl_obo_file = None):
+	lab2co = {}
+	if nlp_mapping:
+		if co2emb is None:
+			sys.exit('Please provide cell type embedding to do NLP-based mapping.')
+		lab2co = fine_nearest_co_using_nlp(np.unique(labels), co2emb, obo_file,nlp_mapping_cutoff = nlp_mapping_cutoff)
+	lab2co = exact_match_co_name_2_co_id(np.unique(labels), lab2co, cl_obo_file = cl_obo_file)
+	for ct in ct_mapping_key:
+		lab2co[ct_mapping_key[ct]] = lab2co[ct]
+	ind = []
+	lab_id = []
+	unfound_labs = set()
+	for i,l in enumerate(labels):
+		if l in cell_ontology_ids:
+			ind.append(i)
+			lab_id.append(l)
+		elif l.lower() in lab2co:
+			ind.append(i)
+			lab_id.append(lab2co[l.lower()])
+		else:
+			unfound_labs.add(l)
+	frac = len(ind) * 1. / len(labels)
+	ind = np.array(ind)
+	labels = np.array(lab_id)
+	unfound_labs = set(unfound_labs)
+	warn_message = 'Warning: Only: %f precentage of labels are in the Cell Ontology. The remaining cells are excluded! Consider using NLP mapping and choose a small mapping cutoff (nlp_mapping_cutoff)' % (frac * 100)
+
+	print (warn_message)
+	print ('Here are unfound labels:',unfound_labs)
+	return ind, labels, unfound_labs
+
+def parse_h5ad(file,seed=1,nsample=1e10,label_key='cell_ontology_class', read_tissue = False, batch_key = '', filter_key={}, cell_ontology_file = None, exclude_non_leaf_ontology = True, exclude_non_ontology=True, DATA_DIR = '../../OnClass_data/'):
+	'''
+	read h5ad file
+	feature: cell by gene expression
+	label: cell ontology class
+	genes: gene names HGNC
+	'''
+	np.random.seed(seed)
+	x = read_h5ad(file)
+	ncell = np.shape(x.X)[0]
+	select_cells = set(range(ncell))
+	for key in filter_key:
+		value = filter_key[key]
+		select_cells = select_cells & set(np.where(np.array(x.obs[key])==value)[0])
+	select_cells = sorted(select_cells)
+	feature = x.X[select_cells, :]
+	labels = np.array(x.obs[label_key].tolist())[select_cells]
+	if read_tissue:
+		tissues = np.array(x.obs['tissue'].tolist())[select_cells]
+	if batch_key=='' or batch_key not in x.obs.keys():
+		batch_labels = np.ones(len(labels))
+	else:
+		batch_labels = np.array(x.obs[batch_key].tolist())[select_cells]
+	genes = x.var.index
+	ncell = len(select_cells)
+
+	if exclude_non_ontology:
+		new_ids, labels = exclude_non_ontology_term(labels, label_key, DATA_DIR = DATA_DIR)
+		feature = feature[new_ids, :]
+		batch_labels = batch_labels[new_ids]
+	if exclude_non_leaf_ontology:
+		new_ids, exclude_terms = exclude_parent_child_nodes(cell_ontology_file, labels)
+		#print (len(exclude_terms),'non leaf terms are excluded')
+		feature = feature[new_ids, :]
+		batch_labels = batch_labels[new_ids]
+		labels = labels[new_ids]
+		if read_tissue:
+			tissues = tissues[new_ids]
+	ncell = len(labels)
+	index = np.random.choice(ncell,min(nsample,ncell),replace=False)
+	batch_labels = batch_labels[index]
+	feature = feature[index, :] # cell by gene matrix
+	labels = labels[index]
+	if read_tissue:
+		tissues = tissues[index]
+	genes = x.var.index
+	corrected_feature = run_scanorama_same_genes(feature, batch_labels)
+	corrected_feature = corrected_feature.toarray()
+	genes = [x.upper() for x in genes]
+	genes = np.array(genes)
+	if read_tissue:
+		assert(len(tissues) == len(labels))
+		return corrected_feature, labels, genes, tissues
+	else:
+		return corrected_feature, labels, genes
+
+
+def exclude_parent_child_nodes(cell_ontology_file,labels):
+	uniq_labels = np.unique(labels)
+	excludes = set()
+	net = collections.defaultdict(dict)
+	fin = open(cell_ontology_file)
 	for line in fin:
-		if line.startswith('id: '):
-			co = line.strip().split('id: ')[1]
-		if line.startswith('name: '):
-			name = line.strip().lower().split('name: ')[1]
-			co2name[co] = name
-			name2co[name] = co
-		if line.startswith('synonym: '):
-			syn = line.strip().lower().split('synonym: "')[1].split('" ')[0]
-			if syn in name2co:
-				continue
-			name2co[syn] = co
+		s,p = line.strip().split('\t')
+		net[s][p] = 1 #p is parent
 	fin.close()
-	return co2name, name2co
+	for n in list(net.keys()):
+		ngh = get_ontology_parents(net, n)
+		for n1 in ngh:
+			net[n][n1] = 1
+	for l1 in uniq_labels:
+		for l2 in uniq_labels:
+			if l1 in net[l2] and l1!=l2: #l1 is l2 parent
+				excludes.add(l1)
+	#print (excludes)
+	new_ids = []
+	for i in range(len(labels)):
+		if labels[i] not in excludes:
+			new_ids.append(i)
+	new_ids = np.array(new_ids)
+	return new_ids, excludes
+
+def corr2_coeff(A, B):
+    # Rowwise mean of input arrays & subtract from input arrays themeselves
+    A_mA = A - A.mean(1)[:, None]
+    B_mB = B - B.mean(1)[:, None]
+
+    # Sum of squares across rows
+    ssA = (A_mA**2).sum(1)
+    ssB = (B_mB**2).sum(1)
+
+    # Finally get corr coeff
+    return np.dot(A_mA, B_mB.T) / np.sqrt(np.dot(ssA[:, None],ssB[None]))
+
+def extract_data_based_on_class(feats, labels, sel_labels):
+	ind = []
+	for l in sel_labels:
+		id = np.where(labels == l)[0]
+		ind.extend(id)
+	np.random.shuffle(ind)
+	X = feats[ind,:]
+	Y = labels[ind]
+	print (np.shape(X), np.shape(Y))
+	return X, Y, ind
+
+def SplitTrainTest(all_X, all_Y, all_tissues = None, random_state=10, nfold_cls = 0.3, nfold_sample = 0.2, nmin_size=10):
+	np.random.seed(random_state)
+
+	cls = np.unique(all_Y)
+	cls2ct = Counter(all_Y)
+	ncls = len(cls)
+	test_cls = list(np.random.choice(cls, int(ncls * nfold_cls), replace=False))
+	for c in cls2ct:
+		if cls2ct[c] < nmin_size:
+			test_cls.append(c)
+	test_cls = np.unique(test_cls)
+	#add rare class to test, since they cannot be split into train and test by using train_test_split(stratify=True)
+	train_cls =  [x for x in cls if x not in test_cls]
+	train_cls = np.array(train_cls)
+	train_X, train_Y, train_ind = extract_data_based_on_class(all_X, all_Y, train_cls)
+	test_X, test_Y, test_ind = extract_data_based_on_class(all_X, all_Y, test_cls)
+	if all_tissues is not None:
+		train_tissues = all_tissues[train_ind]
+		test_tissues = all_tissues[test_ind]
+		train_X_train, train_X_test, train_Y_train, train_Y_test, train_tissues_train, train_tissues_test = train_test_split(
+	 	train_X, train_Y, train_tissues, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+		test_tissues = np.concatenate((test_tissues, train_tissues_test))
+		train_tissues = train_tissues_train
+	else:
+		train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
+	 	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+	test_X = np.vstack((test_X, train_X_test))
+	test_Y = np.concatenate((test_Y, train_Y_test))
+	train_X = train_X_train
+	train_Y = train_Y_train
+	if all_tissues is not None:
+		return train_X, train_Y, train_tissues, test_X, test_Y, test_tissues
+	else:
+		return train_X, train_Y, test_X, test_Y
+
+'''
+def SplitTrainTest(all_X, all_Y, all_tissues = None, random_state=10, nfold_cls = 0.3, nfold_sample = 0.2, nmin_size=10):
+	np.random.seed(random_state)
+
+	cls = np.unique(all_Y)
+	cls2ct = Counter(all_Y)
+	ncls = len(cls)
+	rare_cls = []
+	not_rare_cls = []
+	for c in cls2ct:
+		if cls2ct[c] < 2:
+			continue
+		elif cls2ct[c] < nmin_size:
+			rare_cls.append(c)
+		else:
+			not_rare_cls.append(c)
+	cls = np.concatenate((rare_cls, not_rare_cls))
+	ncls = len(cls)
+	rare_cls = np.array(rare_cls)
+	not_rare_cls = np.array(not_rare_cls)
+	train_non_rare_cls = list(np.random.choice(not_rare_cls, int(len(not_rare_cls) * (1 - nfold_cls)), replace=False))
+	train_cls = np.concatenate((train_non_rare_cls, rare_cls))
+	test_cls =  [x for x in cls if x not in train_cls]
+	test_cls = np.array(test_cls)
+	assert(len(test_cls) + len(train_cls) == ncls)
+	assert(len(set(test_cls) & set(train_cls)) == 0)
+	#add rare class to test, since they cannot be split into train and test by using train_test_split(stratify=True)
+	train_X, train_Y, train_ind = extract_data_based_on_class(all_X, all_Y, train_cls)
+	test_X, test_Y, test_ind = extract_data_based_on_class(all_X, all_Y, test_cls)
+
+	if all_tissues is not None:
+		train_tissues = all_tissues[train_ind]
+		test_tissues = all_tissues[test_ind]
+		train_X_train, train_X_test, train_Y_train, train_Y_test, train_tissues_train, train_tissues_test = train_test_split(
+	 	train_X, train_Y, train_tissues, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+		test_tissues = np.concatenate((test_tissues, train_tissues_test))
+		train_tissues = train_tissues_train
+	else:
+		train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
+	 	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+	test_X = np.vstack((test_X, train_X_test))
+	test_Y = np.concatenate((test_Y, train_Y_test))
+	train_X = train_X_train
+	train_Y = train_Y_train
+	if all_tissues is not None:
+		return train_X, train_Y, train_tissues, test_X, test_Y, test_tissues
+	else:
+		return train_X, train_Y, test_X, test_Y
+'''
+
+def LeaveOneOutTrainTest(all_X, all_Y, test_Y, all_tissues = None, random_state=10, nfold_sample = 0.2, nmin_size=10):
+	np.random.seed(random_state)
+
+	cls = np.unique(all_Y)
+	cls2ct = Counter(all_Y)
+	ncls = len(cls)
+	test_cls = [test_Y]
+	test_cls = np.unique(test_cls)
+	#add rare class to test, since they cannot be split into train and test by using train_test_split(stratify=True)
+	train_cls =  [x for x in cls if x not in test_cls]
+	train_cls = np.array(train_cls)
+	train_X, train_Y, train_ind = extract_data_based_on_class(all_X, all_Y, train_cls)
+	test_X, test_Y, test_ind = extract_data_based_on_class(all_X, all_Y, test_cls)
+	if all_tissues is not None:
+		train_tissues = all_tissues[train_ind]
+		test_tissues = all_tissues[test_ind]
+		train_X_train, train_X_test, train_Y_train, train_Y_test, train_tissues_train, train_tissues_test = train_test_split(
+	 	train_X, train_Y, train_tissues, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+		test_tissues = np.concatenate((test_tissues, train_tissues_test))
+		train_tissues = train_tissues_train
+	else:
+		train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
+	 	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=random_state)
+	test_X = np.vstack((test_X, train_X_test))
+	test_Y = np.concatenate((test_Y, train_Y_test))
+	train_X = train_X_train
+	train_Y = train_Y_train
+	if all_tissues is not None:
+		return train_X, train_Y, train_tissues, test_X, test_Y, test_tissues
+	else:
+		return train_X, train_Y, test_X, test_Y
+
+def renorm(X):
+	Y = X.copy()
+	Y = Y.astype(float)
+	ngene,nsample = Y.shape
+	s = np.sum(Y, axis=0)
+	#print s.shape()
+	for i in range(nsample):
+		if s[i]==0:
+			s[i] = 1
+			if i < ngene:
+				Y[i,i] = 1
+			else:
+				for j in range(ngene):
+					Y[j,i] = 1. / ngene
+		Y[:,i] = Y[:,i]/s[i]
+	return Y
+
+def RandomWalkRestart(A, rst_prob, delta = 1e-4, reset=None, max_iter=50,use_torch=False,return_torch=False):
+	if use_torch:
+		device = torch.device("cuda:0")
+	nnode = A.shape[0]
+	#print nnode
+	if reset is None:
+		reset = np.eye(nnode)
+	nsample,nnode = reset.shape
+	#print nsample,nnode
+	P = renorm(A)
+	P = P.T
+	norm_reset = renorm(reset.T)
+	norm_reset = norm_reset.T
+	if use_torch:
+		norm_reset = torch.from_numpy(norm_reset).float().to(device)
+		P = torch.from_numpy(P).float().to(device)
+	Q = norm_reset
+
+	for i in range(1,max_iter):
+		#Q = gnp.garray(Q)
+		#P = gnp.garray(P)
+		if use_torch:
+			Q_new = rst_prob*norm_reset + (1-rst_prob) * torch.mm(Q, P)#.as_numpy_array()
+			delta = torch.norm(Q-Q_new, 2)
+		else:
+			Q_new = rst_prob*norm_reset + (1-rst_prob) * np.dot(Q, P)#.as_numpy_array()
+			delta = np.linalg.norm(Q-Q_new, 'fro')
+		Q = Q_new
+		#print (i,Q)
+		sys.stdout.flush()
+		if delta < 1e-4:
+			break
+	if use_torch and not return_torch:
+		Q = Q.cpu().numpy()
+	return Q
+
+def DCA_vector(Q, dim):
+	nnode = Q.shape[0]
+	alpha = 1. / (nnode **2)
+	Q = np.log(Q + alpha) - np.log(alpha);
+
+	#Q = Q * Q';
+	[U, S, V] = svds(Q, dim);
+	S = np.diag(S)
+	X = np.dot(U, np.sqrt(S))
+	Y = np.dot(np.sqrt(S), V)
+	Y = np.transpose(Y)
+	return X,U,S,V,Y
+
+def read_cell_ontology_nlp(l2i, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_nlp_emb_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp.emb'):
+	ncls = len(l2i)
+	net = np.zeros((ncls, ncls))
+	bin_net = np.zeros((ncls, ncls))
+	fin = open(ontology_nlp_file)
+	for line in fin:
+		s,p,wt = line.upper().strip().split('\t')
+		wt = float(wt)
+		net[l2i[s], l2i[p]] = np.exp(wt)
+		net[l2i[p], l2i[s]] = np.exp(wt)
+		bin_net[l2i[s], l2i[p]] = 1
+		bin_net[l2i[p], l2i[s]] = 1
+	fin.close()
+
+	l2vec = {}
+	fin = open(ontology_nlp_emb_file)
+	for line in fin:
+		w = line.upper().strip().split('\t')
+		l2vec[w[0]] = []
+		dim = len(w)-1
+		for i in range(1,len(w)):
+			l2vec[w[0]].append(float(w[i]))
+	fin.close()
+
+	l2vec_mat = np.zeros((ncls, dim))
+	for l in l2vec:
+		if l.upper() not in l2i:
+			continue
+		l2vec_mat[l2i[l.upper()],:] = l2vec[l]
+
+	'''
+	net_sum = np.sum(net,axis=0)
+	for i in range(ncls):
+		if net_sum[i] == 0:
+			net[i,i] = 1.
+		net[:,i] /= np.sum(net[:,i])
+	#net = net / net.sum(axis=1)[:, np.newaxis]
+	'''
+	return net, bin_net, l2vec_mat
+
+
+def GetReverseNet(onto_net):
+	onto_net_rev = collections.defaultdict(dict)
+	for a in onto_net:
+		for b in onto_net[a]:
+			onto_net_rev[b][a] = 1
+	return onto_net_rev
+
+
+def ParseCLOnto(train_Y, co_dim=5, co_mi=3, dfs_depth = 1, combine_unseen = False,  add_emb_diagonal = True, use_pretrain = None, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology', use_seen_only = True):#
+	unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat = create_labels(train_Y, dfs_depth = dfs_depth, combine_unseen = combine_unseen, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
+	Y_emb = emb_ontology(i2l, dim = co_dim, mi=co_mi,  ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file, use_pretrain = use_pretrain, use_seen_only = True, unseen_l = unseen_l)
+	if add_emb_diagonal:
+		Y_emb = np.column_stack((np.eye(len(i2l)), Y_emb))
+	return unseen_l, l2i, i2l, onto_net, Y_emb, onto_net_mat
+
 
 
 def graph_embedding(A, i2l, mi=0, dim=20,use_seen_only=True,unseen_l=None):
@@ -910,90 +1102,13 @@ def cal_ontology_emb(dim=20, mi=3,  use_pretrain = None, ontology_nlp_file = '..
 		sp = np.load(sp_file,allow_pickle=True)
 	return X, l2i, i2l, sp
 
-
-def impute_knn(c2l, labid, tp2tp, knn=3):
-	ncell, nlabel = np.shape(c2l)
-	seen_y = set(labid)
-	unseen_y = list(set(np.arange(nlabel)) - set(labid))
-	tp2tp_ind = np.argsort(tp2tp*-1, axis = 1)
-	#tp2tp_ind = tp2tp_ind.astype(int)
-	for i in unseen_y:
-		ngh = tp2tp_ind[i,:knn]
-		c2l[:,i] = np.dot(c2l[:,ngh], tp2tp[i, ngh].T) / knn
-	return c2l
-
-
-def postprocess(mat, mi=0):
-	if mi==0:
-		return preprocessing.scale(mat,axis=0)
-	elif mi==1:
-		return preprocessing.scale(mat,axis=1)
-	elif mi==2:
-		return preprocessing.normalize(mat,axis=0)
-	elif mi==3:
-		return preprocessing.normalize(mat,axis=1)
-	elif mi==4:
-		return mat
-
-def get_onotlogy_parents(GO_net, g):
-	term_valid = set()
-	ngh_GO = set()
-	ngh_GO.add(g)
-	while len(ngh_GO) > 0:
-		for GO in list(ngh_GO):
-			for GO1 in GO_net[GO]:
-				ngh_GO.add(GO1)
-			ngh_GO.remove(GO)
-			term_valid.add(GO)
-	return term_valid
-
-
-def read_ontology(l2i, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
-	nl = len(l2i)
-	net = collections.defaultdict(dict)
-	net_mat = np.zeros((nl,nl))
-	fin = open(ontology_file)
-	for line in fin:
-		s,p = line.strip().split('\t')
-		si = l2i[s]
-		pi = l2i[p]
-		net[si][pi] = 1
-		net_mat[si][pi] = 1
-	fin.close()
-	for n in range(nl):
-		ngh = get_ontology_parents(net, n)
-		net[n][n] = 1
-		for n1 in ngh:
-			net[n][n1] = 1
-	return net, net_mat
-
-
-def extend_prediction_2unseen(pred_Y_seen, networks, nseen, ratio=200, use_normalize=False):
-	if not isinstance(networks, list):
-		networks = [networks]
-	pred_Y_all_totoal = 0.
-	for onto_net_rwr in networks:
-		if use_normalize:
-			onto_net_rwr = onto_net_rwr - np.tile(np.mean(onto_net_rwr, axis = 1), (np.shape(onto_net_rwr)[0], 1))
-		pred_Y_seen_norm = pred_Y_seen / pred_Y_seen.sum(axis=1)[:, np.newaxis]
-		pred_Y_all = np.dot(pred_Y_seen_norm, onto_net_rwr[:nseen,:])
-		pred_Y_all[:,:nseen] = normalize(pred_Y_all[:,:nseen],norm='l1',axis=1)
-		pred_Y_all[:,nseen:] = normalize(pred_Y_all[:,nseen:],norm='l1',axis=1) * ratio
-		pred_Y_all_totoal += pred_Y_all
-	return pred_Y_all_totoal
-
-
-def get_ontology_parents(GO_net, g):
-	term_valid = set()
-	ngh_GO = set()
-	ngh_GO.add(g)
-	while len(ngh_GO) > 0:
-		for GO in list(ngh_GO):
-			for GO1 in GO_net[GO]:
-				ngh_GO.add(GO1)
-			ngh_GO.remove(GO)
-			term_valid.add(GO)
-	return term_valid
+def merge_26_datasets(datanames_26datasets, scan_dim = 50):
+	datasets, genes_list, n_cells = load_names(datanames_26datasets,verbose=False,log1p=True)
+	datasets, genes = merge_datasets(datasets, genes_list)
+	datasets_dimred, genes = process_data(datasets, genes, dimred=scan_dim)
+	datasets_dimred, expr_datasets = my_assemble(datasets_dimred, ds_names=datanames_26datasets, expr_datasets = datasets, sigma=150)
+	datasets_dimred = sparse.vstack(expr_datasets).toarray()
+	return datasets_dimred, genes
 
 def emb_ontology(i2l, dim=20, mi=0,  ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology', use_pretrain = None, use_seen_only = True, unseen_l = None):
 	X, ont_l2i, ont_i2l, A = cal_ontology_emb(dim=dim, mi=mi,  ontology_nlp_file =ontology_nlp_file, ontology_file = ontology_file, use_pretrain = use_pretrain, use_seen_only = True, unseen_l = unseen_l)
@@ -1016,6 +1131,104 @@ def emb_ontology(i2l, dim=20, mi=0,  ontology_nlp_file = '../../OnClass_data/cel
 				AA[i,j] = A[ont_l2i[anti],ont_l2i[antj]]
 	'''
 	return i2emb
+'''
+def get_ontology_parents(GO_net, g):
+	term_valid = set()
+	ngh_GO = set()
+	ngh_GO.add(g)
+	while len(ngh_GO) > 0:
+		for GO in list(ngh_GO):
+			for GO1 in GO_net[GO]:
+				ngh_GO.add(GO1)
+			ngh_GO.remove(GO)
+			term_valid.add(GO)
+	return term_valid
+'''
+
+def get_ontology_parents(GO_net, g, dfs_depth=100):
+	term_valid = set()
+	ngh_GO = set()
+	ngh_GO.add(g)
+	depth = {}
+	depth[g] = 0
+	while len(ngh_GO) > 0:
+		for GO in list(ngh_GO):
+			for GO1 in GO_net[GO]:
+				ngh_GO.add(GO1)
+				depth[GO1] = depth[GO] + 1
+			ngh_GO.remove(GO)
+			if depth[GO] < dfs_depth:
+				term_valid.add(GO)
+	return term_valid
+
+def create_labels(train_Y, combine_unseen = False, dfs_depth = 1000, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
+
+	fin = open(ontology_file)
+	lset = set()
+	for line in fin:
+		s,p = line.strip().split('\t')
+		lset.add(s)
+		lset.add(p)
+	fin.close()
+
+	seen_l = sorted(np.unique(train_Y))
+	unseen_l = sorted(lset - set(train_Y))
+	ys =  np.concatenate((seen_l, unseen_l))
+
+	i2l = {}
+	l2i = {}
+	for l in ys:
+		nl = len(i2l)
+		col = l
+		if combine_unseen and l in unseen_l:
+			nl = len(seen_l)
+			l2i[col] = nl
+			i2l[nl] = col
+			continue
+		l2i[col] = nl
+		i2l[nl] = col
+	train_Y = [l2i[y] for y in train_Y]
+	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
+	onto_net, onto_net_mat = read_ontology(l2i, dfs_depth = dfs_depth, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
+	return unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat
+
+def query_depth_ontology(net, node, root='cl:0000000'):
+	depth = 0
+	while node != root:
+		if len(net[node]) == 0:
+			print (node)
+		node = sorted(list(net[node].keys()))[0]
+		depth += 1
+		if depth>100:
+			sys.error('root not found')
+	return depth
+
+
+def read_ontology(l2i, dfs_depth = 1000, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
+	nl = len(l2i)
+	net = collections.defaultdict(dict)
+	net_mat = np.zeros((nl,nl))
+	fin = open(ontology_file)
+	for line in fin:
+		s,p = line.strip().split('\t')
+		si = l2i[s]
+		pi = l2i[p]
+		net[si][pi] = 1
+		net_mat[si][pi] = 1
+	fin.close()
+	for n in range(nl):
+		ngh = get_ontology_parents(net, n, dfs_depth = dfs_depth)
+		net[n][n] = 1
+		for n1 in ngh:
+			net[n][n1] = 1
+	return net, net_mat
+
+def extract_label_propagate_tree(onto_net, ncls):
+	tree = np.zeros((ncls,ncls))
+	for n1 in onto_net:
+		for n2 in onto_net[n1]:
+			tree[n1,n2] = 1
+	return tree
 
 def ConvertLabels(labels, ncls=-1):
 	ncell = np.shape(labels)[0]
@@ -1040,248 +1253,268 @@ def ConvertLabels(labels, ncls=-1):
 				vec[i] = ind[0]
 		return vec
 
-
-def create_labels(train_Y, combine_unseen = False, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
-
-	fin = open(ontology_file)
-	lset = set()
-	for line in fin:
-		s,p = line.strip().split('\t')
-		lset.add(s)
-		lset.add(p)
-	fin.close()
-
-	seen_l = sorted(np.unique(train_Y))
-	unseen_l = sorted(lset - set(train_Y))
-	ys =  np.concatenate((seen_l, unseen_l))
-
-	i2l = {}
-	l2i = {}
-	for l in ys:
-		nl = len(i2l)
-		col = l
-		if combine_unseen and l in unseen_l:
-			nl = len(seen_l)
-			l2i[col] = nl
-			i2l[nl] = col
-			continue
-		l2i[col] = nl
-		i2l[nl] = col
-	train_Y = [l2i[y] for y in train_Y]
-	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
-	onto_net, onto_net_mat = read_ontology(l2i, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
-	return unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat
-
-
-def extract_data_based_on_class(feats, labels, sel_labels):
-	ind = []
-	for l in sel_labels:
-		id = np.where(labels == l)[0]
-		ind.extend(id)
-	np.random.shuffle(ind)
-	X = feats[ind,:]
-	Y = labels[ind]
-	return X, Y
-
-
-def ImputeUnseenCls(y_vec, y_raw, cls2cls_sim, nunseen, knn=1, combine_unseen=False):
-	if combine_unseen:
-		return ConvertLabels(y_vec, ncls=np.shape(cls2cls_sim)[0])
-	nclass = np.shape(cls2cls_sim)[0]
-	nseen =nclass - nunseen
-	seen2unseen_sim = cls2cls_sim[:nseen, nseen:]
-	ncell = len(y_vec)
-	y_mat = np.zeros((ncell, nclass))
-	y_mat[:,:nseen] = y_raw[:, :nseen]
-	for i in range(ncell):
-		if y_vec[i] == nseen:
-			kngh = np.argsort(y_raw[i,:]*-1)[0:knn]
-			kngh_new = []
-			for k in kngh:
-				if y_raw[i,k]!=0:
-					kngh_new.append(k)
-			kngh_new = np.array(kngh_new)
-			if len(kngh_new) == 0:
-				continue
-			y_mat[i,:nseen] -= 10000
-			y_mat[i,nseen:] = np.dot(y_raw[i,kngh_new], seen2unseen_sim[kngh_new,:])
-			#unseen_c = np.argsort(wt_sc * -1)[0]
-			#y_vec[i] = unseen_c + nseen
-			#y_mat[i,y_vec[i]] = 1.
-	#y_mat = ConvertLabels(y_vec, ncls=np.shape(cls2cls_sim)[0])
-	return y_mat
-
-def filter_no_label_cells(X, Y, DATA_DIR = '../../OnClass_data/'):
-	if np.unique(Y)[0].startswith('CL'):
-		return X, Y
-	fin = open(DATA_DIR + 'cell_ontology/cell_ontology_id.txt')
-	annot2id = {}
-	remove_ind = []
-	for line in fin:
-		v,i=line.rstrip().split('\t')
-		i = int(i)
-		annot2id[i] = v.replace('_',':').replace('CL:000115','CL:0000115')
-		if 'xxx' in annot2id[int(i)] or 'nan' in annot2id[int(i)]:
-			remove_ind.extend(np.where(Y==i)[0])
-	fin.close()
-	remove_ind = np.array(remove_ind)
-	N = len(Y)
-	keep_ind = [x for x in range(N) if x not in remove_ind]
-	keep_ind = np.array(keep_ind)
-	print ('%d cells have no valid annotations'%(len(remove_ind)))
-	return X[keep_ind,:], Y[keep_ind]
-
-
-def SplitTrainTest(all_X, all_Y, iter=10, nfold_cls = 0.3, nfold_sample = 0.2, nmin_size=10):
-	np.random.seed(iter)
-
-	cls = np.unique(all_Y)
-	cls2ct = Counter(all_Y)
-	ncls = len(cls)
-	test_cls = list(np.random.choice(cls, int(ncls * nfold_cls), replace=False))
-	for c in cls2ct:
-		if cls2ct[c] < nmin_size:
-			test_cls.append(c)
-	test_cls = np.unique(test_cls)
-	#add rare class to test, since they cannot be split into train and test by using train_test_split(stratify=True)
-	train_cls =  [x for x in cls if x not in test_cls]
-	train_cls = np.array(train_cls)
-	train_X, train_Y = extract_data_based_on_class(all_X, all_Y, train_cls)
-	test_X, test_Y = extract_data_based_on_class(all_X, all_Y, test_cls)
-	train_X_train, train_X_test, train_Y_train, train_Y_test = train_test_split(
- 	train_X, train_Y, test_size=nfold_sample, stratify = train_Y,random_state=iter)
-	test_X = sparse.vstack((test_X, train_X_test))
-	test_Y = np.concatenate((test_Y, train_Y_test))
-	train_X = train_X_train
-	train_Y = train_Y_train
-
-	train_X, train_Y = filter_no_label_cells(train_X, train_Y)
-	test_X, test_Y = filter_no_label_cells(test_X, test_Y)
-
-	return train_X, train_Y, test_X, test_Y
-
-def ParseCLOnto(train_Y, co_dim=1000, co_mi=3, combine_unseen = False, DATA_DIR = '../../OnClass_data/'):#
-	unseen_l, l2i, i2l, train_X2Y, onto_net = create_labels(train_Y, combine_unseen = combine_unseen, DATA_DIR=DATA_DIR)
-	Y_emb, cls2cls = emb_ontology(i2l, dim = co_dim, mi=co_mi, DATA_DIR=DATA_DIR)
-	return unseen_l, l2i, i2l, onto_net, Y_emb, cls2cls
-
 def MapLabel2CL(test_Y, l2i):
-	test_Y = np.array([l2i[y] for y in test_Y])
-	return test_Y
+	test_Y_new = np.array([l2i[y] for y in test_Y])
+	return test_Y_new
 
-
-def create_labels(train_Y, combine_unseen = False, ontology_nlp_file = '../../OnClass_data/cell_ontology/cl.ontology.nlp', ontology_file = '../../OnClass_data/cell_ontology/cl.ontology'):
-
-	fin = open(ontology_file)
-	lset = set()
+def get_ontology_name(obo_file = 'software/OnClass_data/cell_ontology/cl.obo', lower=True):
+	fin = open(obo_file)
+	co2name = {}
+	name2co = {}
+	tag_is_syn = {}
 	for line in fin:
-		s,p = line.strip().split('\t')
-		lset.add(s)
-		lset.add(p)
+		if line.startswith('id: '):
+			co = line.strip().split('id: ')[1]
+		if line.startswith('name: '):
+			if lower:
+				name = line.strip().lower().split('name: ')[1]
+			else:
+				name = line.strip().split('name: ')[1]
+			co2name[co] = name
+			name2co[name] = co
+		if line.startswith('synonym: '):
+			if lower:
+				syn = line.strip().lower().split('synonym: "')[1].split('" ')[0]
+			else:
+				syn = line.strip().split('synonym: "')[1].split('" ')[0]
+			if syn in name2co:
+				continue
+			name2co[syn] = co
+	fin.close()
+	return co2name, name2co
+
+def knn_ngh(Y2Y):
+	ind = np.argsort(Y2Y*-1, axis=1)
+	return ind
+
+def extend_prediction_2unseen_normalize(pred_Y_seen, onto_net_rwr, nseen, ratio=200):
+	sys.exit(-1)#NOT USED
+	ncls = np.shape(onto_net_rwr)[0]
+	onto_net_rwr = onto_net_rwr - np.tile(np.mean(onto_net_rwr, axis = 1), (ncls, 1))
+	pred_Y_seen_norm = pred_Y_seen / pred_Y_seen.sum(axis=1)[:, np.newaxis]
+	pred_Y_all = np.dot(pred_Y_seen_norm, onto_net_rwr[:nseen,:])
+	pred_Y_all[:,:nseen] = normalize(pred_Y_all[:,:nseen],norm='l1',axis=1)
+	pred_Y_all[:,nseen:] = normalize(pred_Y_all[:,nseen:],norm='l1',axis=1) * ratio
+	return pred_Y_all
+
+def create_nlp_networks(l2i, onto_net, cls2cls,  ontology_nlp_file):
+	ncls = np.shape(cls2cls)[0]
+	_, _, onto_nlp_emb = read_cell_ontology_nlp(l2i, ontology_nlp_file = ontology_nlp_file, ontology_nlp_emb_file =  '../OnClass_data/cell_ontology/cl.ontology.nlp.emb')
+	onto_net_nlp_all_pairs = (cosine_similarity(onto_nlp_emb) + 1 ) /2#1 - spatial.distance.cosine(onto_nlp_emb, onto_nlp_emb)
+	onto_net_nlp = np.zeros((ncls, ncls))
+	onto_net_bin = np.zeros((ncls, ncls))
+	stack_net_bin = np.zeros((ncls, ncls))
+	stack_net_nlp = np.zeros((ncls, ncls))
+
+	for n1 in onto_net:
+		for n2 in onto_net[n1]:
+			if n1==n2:
+				continue
+			stack_net_nlp[n2,n1] = onto_net_nlp_all_pairs[n2, n1]
+			stack_net_nlp[n1,n2] = onto_net_nlp_all_pairs[n1, n2]
+			stack_net_bin[n1,n2] = 1
+			stack_net_bin[n2,n1] = 1
+	for n1 in range(ncls):
+		for n2 in range(ncls):
+			if cls2cls[n1,n2] == 1 or cls2cls[n2,n1] == 1:
+				onto_net_nlp[n1,n2] = onto_net_nlp_all_pairs[n1, n2]
+				onto_net_nlp[n2,n1] = onto_net_nlp_all_pairs[n2, n1]
+				onto_net_bin[n1,n2] = 1
+				onto_net_bin[n2,n1] = 1
+	return onto_net_nlp, onto_net_bin, stack_net_nlp, stack_net_bin, onto_net_nlp_all_pairs
+
+
+def create_consensus_networks(rsts, onto_net_mat, onto_net_nlp_all_pairs, cls2cls, diss=[2,3], thress=[1,0.8]):
+	cls2cls_sp = graph_shortest_path(cls2cls,method='FW',directed =False)
+	ncls = np.shape(onto_net_mat)[0]
+	networks = []
+	for rst in rsts:
+		for dis in diss:
+			for thres in thress:
+				use_net = np.copy(onto_net_mat)
+				use_net[(cls2cls_sp<=dis)&(onto_net_nlp_all_pairs > thres)] = onto_net_nlp_all_pairs[(cls2cls_sp<=dis)&(onto_net_nlp_all_pairs > thres)]
+				onto_net_rwr = RandomWalkRestart(use_net, rst)
+				networks.append(onto_net_rwr)
+	return networks
+
+def extend_prediction_2unseen(pred_Y_seen, networks, nseen, ratio=200, use_normalize=False):
+	if not isinstance(networks, list):
+		networks = [networks]
+	pred_Y_all_totoal = 0.
+	for onto_net_rwr in networks:
+		if use_normalize:
+			onto_net_rwr = onto_net_rwr - np.tile(np.mean(onto_net_rwr, axis = 1), (np.shape(onto_net_rwr)[0], 1))
+		pred_Y_seen_norm = pred_Y_seen / pred_Y_seen.sum(axis=1)[:, np.newaxis]
+		pred_Y_all = np.dot(pred_Y_seen_norm, onto_net_rwr[:nseen,:])
+		pred_Y_all[:,:nseen] = normalize(pred_Y_all[:,:nseen],norm='l1',axis=1)
+		pred_Y_all[:,nseen:] = normalize(pred_Y_all[:,nseen:],norm='l1',axis=1) * ratio
+		pred_Y_all_totoal += pred_Y_all
+	return pred_Y_all_totoal
+
+def my_auprc(y_true, y_pred):
+	precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+	area = auc(recall, precision)
+	return area
+
+def sampled_auprc(truths,preds):
+	pos = np.where(truths == 1)[0]
+	neg = np.where(truths == 0)[0]
+	assert(len(pos) + len(neg) == len(truths))
+	nneg = len(neg)
+	npos = len(pos)
+	select_neg = np.random.choice(nneg, npos*3, replace = True)
+	select_ind = np.concatenate((pos, select_neg))
+	return average_precision_score(truths[select_ind], preds[select_ind])
+
+def evaluate(Y_pred_mat, Y_truth_vec, unseen_l, nseen, Y_truth_bin_mat = None, Y_pred_vec = None, Y_ind=None, Y_net = None, Y_net_mat = None, write_screen = True, write_to_file = None, combine_unseen = False, prefix='', metrics = ['AUROC(seen)','AUPRC(seen)','AUROC','AUPRC','AUROC(unseen)', 'AUPRC(unseen)','Accuracy@3','Accuracy@5']):
+	#preprocess scores
+	unseen_l = np.array(list(unseen_l))
+	ncell,nclass = np.shape(Y_pred_mat)
+	nseen = nclass - len(unseen_l)
+	if Y_ind is not None:
+		non_Y_ind = np.array(list(set(range(nclass)) - set(Y_ind)))
+		if len(non_Y_ind)>0:
+			Y_pred_mat[:,non_Y_ind] = -1 * np.inf
+	if Y_pred_vec is None:
+		Y_pred_vec = np.argmax(Y_pred_mat, axis=1)
+	if Y_truth_bin_mat is  None:
+		Y_truth_bin_mat = ConvertLabels(Y_truth_vec, nclass)
+
+	Y_pred_bin_mat = ConvertLabels(Y_pred_vec, nclass)
+	#class-based metrics
+	class_auc_macro = np.full(nclass, np.nan)
+	class_auprc_macro = np.full(nclass, np.nan)
+	class_f1 = np.full(nclass, np.nan)
+	for i in range(nclass):
+		if len(np.unique(Y_truth_bin_mat[:,i]))==2 and np.sum(Y_truth_bin_mat[:,i])>=10:
+			class_auc_macro[i] = roc_auc_score(Y_truth_bin_mat[:,i], Y_pred_mat[:,i])
+			class_auprc_macro[i] = sampled_auprc(Y_truth_bin_mat[:,i], Y_pred_mat[:,i])
+			class_f1[i] = f1_score(Y_truth_bin_mat[:,i], Y_pred_bin_mat[:,i])
+
+
+	#sample-based metrics
+	extend_acc, extend_Y = extend_accuracy(Y_truth_vec, Y_pred_vec, Y_net, unseen_l)
+	kappa = cohen_kappa_score(Y_pred_vec, Y_truth_vec)
+	extend_kappa = cohen_kappa_score(extend_Y, Y_truth_vec)
+	accuracy = accuracy_score(Y_truth_vec, Y_pred_vec)
+	prec_at_k_3 = precision_at_k(Y_pred_mat, Y_truth_vec, 3)
+	prec_at_k_5 = precision_at_k(Y_pred_mat, Y_truth_vec, 5)
+
+	#print ([(x,np.sum(Y_truth_bin_mat[:,unseen_l[i]])) for i,x in enumerate(class_auprc_macro[unseen_l]) if not np.isnan(x)])
+	seen_auc_macro = np.nanmean(class_auc_macro[:nseen])
+	seen_auprc_macro = np.nanmean(class_auprc_macro[:nseen])
+	seen_f1 = np.nanmean(class_f1[:nseen])
+	if len(unseen_l) == 0:
+		unseen_auc_macro = 0
+		unseen_auprc_macro = 0
+		unseen_f1 = 0
+	else:
+		unseen_auc_macro = np.nanmean(class_auc_macro[unseen_l])
+		#unseen_auprc_macro = np.nanmean([x for i,x in enumerate(class_auprc_macro[unseen_l]) if np.sum(Y_truth_bin_mat[:,unseen_l[i]])>100])#
+		unseen_auprc_macro = np.nanmean(class_auprc_macro[unseen_l])
+		unseen_f1 = np.nanmean(class_f1[unseen_l])
+
+	#metrics = ['AUROC','AUPRC','unseen_AUROC', 'unseen_AUPRC','Cohens Kappa','Accuracy@3','Accuracy@5']
+	#res_v = [seen_auc_macro, seen_auprc_macro, np.nanmean(class_auc_macro), np.nanmean(class_auprc_macro), extend_kappa, prec_at_k_3, prec_at_k_5, unseen_auc_macro, unseen_auprc_macro]
+	all_v = {'AUROC':np.nanmean(class_auc_macro), 'AUPRC': np.nanmean(class_auprc_macro), 'AUROC(seen)':seen_auc_macro, 'AUPRC(seen)': seen_auprc_macro, 'AUROC(unseen)':unseen_auc_macro, 'AUPRC(unseen)': unseen_auprc_macro, 'Cohens Kappa':extend_kappa, 'Accuracy@3':prec_at_k_3, 'Accuracy@5':prec_at_k_5}
+	res_v = {}
+	for metric in metrics:
+		res_v[metric] = all_v[metric]
+	#res_v = [seen_auc_macro, seen_auprc_macro, seen_f1, np.nanmean(class_auc_macro), np.nanmean(class_auprc_macro), np.nanmean(class_f1), unseen_auc_macro, unseen_auprc_macro, unseen_f1]
+	if write_screen:
+		print (prefix, end='\t')
+		for v in metrics:
+			print ('%.4f'%res_v[v], end='\t')
+		print ('')
+		sys.stdout.flush()
+	if write_to_file is not None:
+		write_to_file.write(prefix+'\t')
+		for v in metrics:
+			write_to_file.write('%.2f\t'%res_v[v])
+		write_to_file.write('\n')
+		write_to_file.flush()
+	return res_v
+
+def precision_at_k(pred,truth,k):
+	ncell, nclass = np.shape(pred)
+	hit = 0.
+	for i in range(ncell):
+		x = np.argsort(pred[i,:]*-1)
+		rank = np.where(x==truth[i])[0][0]
+		if rank < k:
+			hit += 1.
+	prec = hit / ncell
+	return prec
+
+
+def read_type2genes(g2i, marker_gene = '/oak/stanford/groups/rbaltman/swang91/Sheng_repo/software/OnClass_data/marker_genes/gene_marker_expert_curated.txt'):
+	co2name, name2co = get_ontology_name()
+
+	c2cnew = {}
+	c2cnew['cd4+ t cell'] = 'CD4-positive, CXCR3-negative, CCR6-negative, alpha-beta T cell'.lower()
+	c2cnew['chromaffin cells (enterendocrine)'] = 'chromaffin cell'.lower()
+
+
+	c2cnew['mature NK T cell'] = 'mature NK T cell'.lower()
+	c2cnew['cd8+ t cell'] = 'CD8-positive, alpha-beta cytotoxic T cell'.lower()
+	fin = open(marker_gene)
+	fin.readline()
+	tp2genes = {}
+	unfound = set()
+	for line in fin:
+		w = line.strip().split('\t')
+		c1 = w[1].lower()
+		c2 = w[2].lower()
+		genes = []
+		for ww in w[8:]:
+			if ww.upper() in g2i:
+				genes.append(ww.upper())
+		if len(genes)==0:
+			continue
+		if c1.endswith('s') and c1[:-1] in name2co:
+			c1 = c1[:-1]
+		if c2.endswith('s') and c2[:-1] in name2co:
+			c2 = c2[:-1]
+		if c1 + ' cell' in name2co:
+			c1 +=' cell'
+		if c2 + ' cell' in name2co:
+			c2 +=' cell'
+		if c1 in c2cnew:
+			c1 = c2cnew[c1]
+		if c2 in c2cnew:
+			c2 = c2cnew[c2]
+		if c1 in name2co:
+			tp2genes[name2co[c1]] = genes
+		else:
+			unfound.add(c1)
+		if c2 in name2co:
+			tp2genes[name2co[c2]] = genes
+		else:
+			unfound.add(c2)
 	fin.close()
 
-	seen_l = sorted(np.unique(train_Y))
-	unseen_l = sorted(lset - set(train_Y))
-	ys =  np.concatenate((seen_l, unseen_l))
+	return tp2genes
 
-	i2l = {}
-	l2i = {}
-	for l in ys:
-		nl = len(i2l)
-		col = l
-		if combine_unseen and l in unseen_l:
-			nl = len(seen_l)
-			l2i[col] = nl
-			i2l[nl] = col
-			continue
-		l2i[col] = nl
-		i2l[nl] = col
-	train_Y = [l2i[y] for y in train_Y]
-	train_X2Y = ConvertLabels(train_Y, ncls = len(i2l))
-	onto_net, onto_net_mat = read_ontology(l2i, ontology_nlp_file = ontology_nlp_file, ontology_file = ontology_file)
-	return unseen_l, l2i, i2l, train_X2Y, onto_net, onto_net_mat
 
-def renorm(X):
-	Y = X.copy()
-	Y = Y.astype(float)
-	ngene,nsample = Y.shape
-	s = np.sum(Y, axis=0)
-	#print s.shape()
-	for i in range(nsample):
-		if s[i]==0:
-			s[i] = 1
-			if i < ngene:
-				Y[i,i] = 1
+
+
+def extend_accuracy(test_Y, test_Y_pred_vec, Y_net, unseen_l):
+	unseen_l = set(unseen_l)
+	n = len(test_Y)
+	acc = 0.
+	ntmp = 0.
+	new_pred = []
+	for i in range(n):
+		if test_Y[i] in unseen_l and test_Y_pred_vec[i] in unseen_l:
+			if test_Y_pred_vec[i] in Y_net[test_Y[i]] and Y_net[test_Y[i]][test_Y_pred_vec[i]] == 1:
+				acc += 1
+				ntmp += 1
+				new_pred.append(test_Y[i])
 			else:
-				for j in range(ngene):
-					Y[j,i] = 1. / ngene
-		Y[:,i] = Y[:,i]/s[i]
-	return Y
-
-def RandomWalkRestart(A, rst_prob, delta = 1e-4, reset=None, max_iter=50,use_torch=False,return_torch=False):
-	if use_torch:
-		device = torch.device("cuda:0")
-	nnode = A.shape[0]
-	#print nnode
-	if reset is None:
-		reset = np.eye(nnode)
-	nsample,nnode = reset.shape
-	#print nsample,nnode
-	P = renorm(A)
-	P = P.T
-	norm_reset = renorm(reset.T)
-	norm_reset = norm_reset.T
-	if use_torch:
-		norm_reset = torch.from_numpy(norm_reset).float().to(device)
-		P = torch.from_numpy(P).float().to(device)
-	Q = norm_reset
-
-	for i in range(1,max_iter):
-		#Q = gnp.garray(Q)
-		#P = gnp.garray(P)
-		if use_torch:
-			Q_new = rst_prob*norm_reset + (1-rst_prob) * torch.mm(Q, P)#.as_numpy_array()
-			delta = torch.norm(Q-Q_new, 2)
+				new_pred.append(test_Y_pred_vec[i])
 		else:
-			Q_new = rst_prob*norm_reset + (1-rst_prob) * np.dot(Q, P)#.as_numpy_array()
-			delta = np.linalg.norm(Q-Q_new, 'fro')
-		Q = Q_new
-		#print 'random walk iter',i, delta
-		sys.stdout.flush()
-		if delta < 1e-4:
-			break
-	if use_torch and not return_torch:
-		Q = Q.cpu().numpy()
-	return Q
-
-def DCA_vector(Q, dim):
-	nnode = Q.shape[0]
-	alpha = 1. / (nnode **2)
-	Q = np.log(Q + alpha) - np.log(alpha);
-
-	#Q = Q * Q';
-	[U, S, V] = svds(Q, dim);
-	S = np.diag(S)
-	X = np.dot(U, np.sqrt(S))
-	Y = np.dot(np.sqrt(S), V)
-	Y = np.transpose(Y)
-	return X,U,S,V,Y
-
-
-def map_genes(test_X, test_genes, train_X, train_genes, scan_dim = 100):
-	ntest_cell = np.shape(test_X)[0]
-	ntrain_gene = len(train_genes)
-	new_test_x = np.zeros((ntest_cell, ntrain_gene))
-	genes = set(test_genes) & set(train_genes)
-	train_genes = list(train_genes)
-	test_genes = list(test_genes)
-	print ('number of intersection genes '+str(len(genes)))
-	ind1 = []
-	ind2 = []
-	for i,g in enumerate(genes):
-		ind1.append(train_genes.index(g))
-		ind2.append(test_genes.index(g))
-	ind1 = np.array(ind1)
-	ind2 = np.array(ind2)
-	new_test_x[:,ind1] = test_X[:,ind2]
-	return new_test_x
+			if test_Y[i] == test_Y_pred_vec[i]:
+				acc += 1
+			new_pred.append(test_Y_pred_vec[i])
+	new_pred = np.array(new_pred)
+	return acc/n, new_pred
