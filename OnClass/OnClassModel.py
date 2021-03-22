@@ -54,7 +54,7 @@ class OnClassModel:
 		train_X, test_X = process_expression([train_X, test_X])
 		return train_X, test_X
 
-	def BuildModel(self, label_emb, ngene, nhidden=[1000], use_pretrain=None):
+	def BuildModel(self, ngene, nhidden=[1000], use_pretrain=None):
 		"""
 		Train the model or use the pretrain model
 		Parameters
@@ -68,13 +68,14 @@ class OnClassModel:
 		"""
 		self.ngene = ngene
 		self.use_pretrain = use_pretrain
-		self.label_emb = label_emb
+		#self.label_emb = label_emb
 		self.nhidden = nhidden
 		if use_pretrain is not None:
 			npzfile = np.load(use_pretrain+'.npz',allow_pickle=True)
 			self.co2i = npzfile['co2i'].item()
 			self.i2co = npzfile['i2co'].item()
 			self.genes = npzfile['genes']
+			self.co2emb = npzfile['co2emb']
 			print (self.genes)
 			self.ngene = len(self.genes)
 			self.ontology_mat = npzfile['ontology_mat']
@@ -83,7 +84,7 @@ class OnClassModel:
 			self.co2vec_nlp_mat = npzfile['co2vec_nlp_mat']
 			self.nhidden = npzfile['nhidden']
 			self.ontology_dict = npzfile['ontology_dict'].item()
-		self.model = BilinearNN(label_emb, self.nseen, self.ngene, use_pretrain = use_pretrain, nhidden=self.nhidden)
+		self.model = BilinearNN(self.co2emb, self.nseen, self.ngene, use_pretrain = use_pretrain, nhidden=self.nhidden)
 		return self.model
 
 	def Train(self, train_feature, train_label, save_model = None, genes = None, max_iter=50, log_transform=False, minibatch_size = 128):
@@ -112,7 +113,7 @@ class OnClassModel:
 
 		if save_model is not None:
 			save_model_file = save_model + '.npz'
-			np.savez(save_model_file, co2i = self.co2i, nhidden = self.nhidden, i2co = self.i2co, genes = genes, nco = self.nco, nseen = self.nseen,
+			np.savez(save_model_file, co2i = self.co2i, co2emb = self.co2emb, nhidden = self.nhidden, i2co = self.i2co, genes = genes, nco = self.nco, nseen = self.nseen,
 			 ontology_mat = self.ontology_mat, co2vec_nlp_mat = self.co2vec_nlp_mat, ontology_dict = self.ontology_dict)
 
 	def Predict(self, test_X, test_genes=None, log_transform=False, use_normalize=False, refine = True):
@@ -121,7 +122,7 @@ class OnClassModel:
 		"""
 
 		if log_transform:
-			test_X = np.log1p(test_X.todense())
+			test_X = np.log1p(test_X)
 		if test_genes is not None:
 			test_X = map_genes(test_X, test_genes, self.genes)
 		else:
