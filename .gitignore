@@ -1,5 +1,6 @@
 dist/
 build/
 OnClass.egg-info/
+OnClass.egg-info/
 __pycache__/
 OnClass/__pycache__/
