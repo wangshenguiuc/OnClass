@@ -2,6 +2,7 @@ Install OnClass
 =========================
 OnClass can be substantially accelerated by using GPU (tensorflow 2.0). However, this is only required when you want to train your own model. OnClass can also be used with only CPU.
 
+OnClass package only has three scripts: the OnClass class file, the deep learning model file and utility function files.
 
 
 Install from Conda environment file
