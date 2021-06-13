@@ -2,11 +2,15 @@ Install OnClass
 =========================
 OnClass can be substantially accelerated by using GPU (tensorflow 2.0). However, this is only required when you want to train your own model. OnClass can also be used with only CPU.
 
-OnClass package only has three scripts: the `OnClass class file<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/OnClassModel.py>`__,
-`the deep learning model file<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/BilinearNN.py>`__, and
-`the utility functions file<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/OnClass_utils.py>`__.
+OnClass package only has three scripts: the `OnClass class file
+<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/OnClassModel.py>`__,
+`the deep learning model file
+<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/BilinearNN.py>`__, and
+`the utility functions file
+<https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/OnClass_utils.py>`__.
 
-So you can simply get these three files and put it in the right directory (see how to use `run_OnClass_example.py <https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>__` in Tutorial). You can also install OnClass using pip as following:
+So you can simply get these three files and put it in the right directory (see how to use `run_OnClass_example.py
+<https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>`__ in Tutorial). You can also install OnClass using pip as following:
 
 
 ~~~~~~~~~
