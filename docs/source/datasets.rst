@@ -14,41 +14,27 @@ The files in OnClass_data_public_all.tar.gz are:
 
 OnClass_data_public_minimal.tar.gz is the Ontology_data folder.
 
-
-Currently, we include:
-
-1) 26-datasets
+1) scRNA_data
 ~~~~~~~~~
 
-26-datasets obtained from Scanorama project.
+This includes all the single cell gene expression data used in our paper (see Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7).
 
 
-2) cell_ontology
+2) Ontology_data
 ~~~~~~~~~
 
-The Cell Ontology file used in our analysis, which is downloaded from `OBO Foundry <http://www.obofoundry.org/ontology/cl.html>`__.
+This include Cell Ontology and Allen brain Ontology. Cell Ontology has cell type text definition. cl.ontology.nlp.emb is the text embedding of the definition of each cell type.
 
 
-3) figures
+3) Pretrained_model
 ~~~~~~~~~
 
-Reproduced figures in the paper using OnClass.
+8 tensorflow pretrained models trained from 8 dataset in Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7.
 
 
-4) marker_genes
+4) Intermediate_files
 ~~~~~~~~~
 
-Marker genes for 2331 cell types identified by OnClass and curated by experts
+Intermediate files for some scripts in cross dataset prediction and marker genes identification. This can help reproduce results in our paper.
 
-5) pretrained model
-~~~~~~~~~
-
-cell type embedding and pretrain prediction model
-
-6) raw data
-~~~~~~~~~
-
-Gene expression data for FACS cells and droplet cells used in our analysis.
-
-
-For questions about the datasets, please contact Sheng Wang at swang91@stanford.edu.
+For questions about the datasets, please contact Sheng Wang at swang91@uw.edu.

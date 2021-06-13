@@ -9,7 +9,7 @@ OnClass package only has three scripts: the `OnClass class file
 `the utility functions file
 <https://github.com/wangshenguiuc/OnClass/blob/master/OnClass/OnClass_utils.py>`__.
 
-So you can simply get these three files and put it in the right directory (see how to use `run_OnClass_example.py
+You can simply get these three files and put it in the right directory (see how to use `run_OnClass_example.py
 <https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>`__ in Tutorial). You can also install OnClass using pip as following:
 
 
