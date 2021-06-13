@@ -105,7 +105,6 @@ def map_genes(test_X, test_genes, train_genes):
 	genes = set(test_genes) & set(train_genes)
 	train_genes = list(train_genes)
 	test_genes = list(test_genes)
-	print ('number of intersection genes '+str(len(genes)))
 	ind1 = []
 	ind2 = []
 	for i,g in enumerate(genes):
@@ -204,6 +203,24 @@ def read_cell_type_nlp_network(nlp_emb_file, cell_type_network_file):
 		for c in cell_ontology_ids:
 			co2vec_nlp[c] = np.ones((10))
 	return co2co_graph, co2co_nlp, co2vec_nlp, cell_ontology_ids
+
+def create_unseen_candidates(cell_type_network_file, co2i, i2co, nseen, use_unseen_distance, test_Y_pred_all):
+	nct = len(co2i)
+	A = np.zeros((nct, nct))
+	fin = open(cell_type_network_file)
+	for line in fin:
+		w = line.strip().split('\t')
+		A[co2i[w[0]], co2i[w[1]]] = 1.
+		A[co2i[w[1]], co2i[w[0]]] = 1.
+	fin.close()
+	A_dis = graph_shortest_path(A,method='FW',directed =False)
+	min_d = np.min(A_dis[:nseen, nseen:], axis = 0)
+	assert(len(min_d) == nct - nseen)
+	unseen_cand = np.where(min_d > use_unseen_distance)[0] + nseen
+	test_Y_pred_all[:, unseen_cand] = 0
+	assert(np.shape(test_Y_pred_all)[1] == nct)
+	return test_Y_pred_all
+
 
 
 def graph_embedding_dca(A, i2l, mi=0, dim=20,unseen_l=None):
@@ -306,29 +323,43 @@ def renorm(X):
 		Y[:,i] = Y[:,i]/s[i]
 	return Y
 
-def process_expression(c2g_list):
-	#this data process function is motivated by ACTINN, please check ACTINN for more information.
-	c2g = np.vstack(c2g_list)
+def mean_normalization(train_X_mean, test_X):
+	test_X = np.log1p(test_X)
+	test_X_mean = np.mean(test_X, axis = 0)
+	test_X = test_X - test_X_mean + train_X_mean
+	return test_X
+
+def process_expression(train_X, test_X, train_genes, test_genes):
+	#this data process function is adapted from ACTINN, please check ACTINN for more information.
+	#test_X = map_genes(test_X, test_genes, train_genes)
+	c2g = np.vstack([train_X, test_X])
+	c2g = np.array(c2g,  dtype=np.float64)
 	c2g = c2g.T
-	c2g = c2g[np.sum(c2g, axis=1)>0, :]
+	index = np.sum(c2g, axis=1)>0
+	c2g = c2g[index, :]
+	train_genes = train_genes[index]
 	c2g = np.divide(c2g, np.sum(c2g, axis=0, keepdims=True)) * 10000
 	c2g = np.log2(c2g+1)
 	expr = np.sum(c2g, axis=1)
 	#total_set = total_set[np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99)),]
-
-	c2g = c2g[np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99)),]
+	index = np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99))
+	c2g = c2g[index,]
+	train_genes = train_genes[index]
+	#print (np.logical_and(expr >= np.percentile(expr, 1), expr <= np.percentile(expr, 99)))
 
 	cv = np.std(c2g, axis=1) / np.mean(c2g, axis=1)
-	c2g = c2g[np.logical_and(cv >= np.percentile(cv, 1), cv <= np.percentile(cv, 99)),]
-
+	index = np.logical_and(cv >= np.percentile(cv, 1), cv <= np.percentile(cv, 99))
+	c2g = c2g[index,]
+	train_genes = train_genes[index]
 	c2g = c2g.T
 	c2g_list_new = []
 	index = 0
-	for c in c2g_list:
+	for c in [train_X, test_X]:
 		ncell = np.shape(c)[0]
 		c2g_list_new.append(c2g[index:index+ncell,:])
 		index = ncell
-	return c2g_list_new
+		assert (len(train_genes) == np.shape(c2g)[1])
+	return c2g_list_new[0], c2g_list_new[1], train_genes
 
 def emb_ontology(i2l, ontology_mat, co2co_nlp, dim=5, mi=0, unseen_l = None):
 	nco = len(i2l)

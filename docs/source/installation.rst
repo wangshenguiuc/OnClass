@@ -1,10 +1,10 @@
-Installing OnClass
+Install OnClass
 =========================
-OnClass can be substantially accelerated by using GPU (tensorflow). However, there is only required when you want to train your own model.
+OnClass can be substantially accelerated by using GPU (tensorflow 2.0). However, this is only required when you want to train your own model. OnClass can also be used with only CPU.
 
 
 
-Install from Conda environment file (Recommended)
+Install from Conda environment file
 ~~~~~~~~~
 This is the recommended way to install OnClass as it can install the most updated version of OnClass
 

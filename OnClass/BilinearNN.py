@@ -76,9 +76,6 @@ class BilinearNN:
 		self.train_X = np.array(self.train_X, dtype=np.float32)
 		self.train_Y = np.array(self.train_Y, dtype=np.float32)
 
-		print (self.nX, self.ngene, self.nseen, self.ncls)
-
-
 
 	def __build(self,stddev=0.0001, seed=3):#W,H,B
 		tf.set_random_seed(seed) # set seed to make the results consistant
