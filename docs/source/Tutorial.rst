@@ -93,4 +93,4 @@ Use this model to classify cells into all cell types in the Cell Ontology. Here 
 
 Then run `run_marker_genes_identification.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_genes_identification.py>`__ for marker gene identification (Figure 5c).
 
-Run`run_marker_gene_based_prediction.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_gene_based_prediction.py>`__ for marker gene based prediction (Figure 5d,e,f, Extended Data Figure 7).
+Run `run_marker_gene_based_prediction.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_gene_based_prediction.py>`__ for marker gene based prediction (Figure 5d,e,f, Extended Data Figure 7).
