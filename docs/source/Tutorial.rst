@@ -72,4 +72,25 @@ Cross dataset prediction
 
 Marker genes identification
 ----------------
-Please first run `run_generate_pretrained_model.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_generate_pretrained_model.py>`__ to generate the intermediate files for marker gene prediction. Then run `run_marker_genes_identification.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_genes_identification.py>`__ for marker gene identification (Figure 5c) and `run_marker_gene_based_prediction.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_gene_based_prediction.py>`__ for marker gene based prediction (Figure 5d,e,f, Extended Data Figure 7).
+Please first run `run_generate_pretrained_model.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_generate_pretrained_model.py>`__ to generate the intermediate files for marker gene prediction.
+
+Train a model using the seen cell types::
+
+	OnClass_train_obj.EmbedCellTypes(train_label)
+	print ('generate pretrain model. Save the model to $model_path...')
+	model_path = model_dir + 'OnClass_full_'+dname
+	train_feature, train_genes = OnClass_train_obj.ProcessTrainFeature(train_feature, train_label, train_genes)
+	OnClass_train_obj.BuildModel(ngene = len(train_genes))
+	OnClass_train_obj.Train(train_feature, train_label, save_model = model_path)
+
+Use this model to classify cells into all cell types in the Cell Ontology. Here pred_Y_seen is a cell by seen cell type matrix, pred_Y_all is a cell by all cell type type matrix. ::
+
+	OnClass_test_obj = OnClassModel(cell_type_nlp_emb_file = cell_type_nlp_emb_file, cell_type_network_file = cell_type_network_file)
+	OnClass_test_obj.BuildModel(ngene = None, use_pretrain = model_path)
+	pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(train_feature, test_genes = train_genes, use_normalize=False, use_unseen_distance = -1)
+	np.save(output_dir+dname + 'pred_Y_seen.released.npy',pred_Y_seen)
+	np.save(output_dir+dname + 'pred_Y_all.released.npy',pred_Y_all)
+
+Then run `run_marker_genes_identification.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_genes_identification.py>`__ for marker gene identification (Figure 5c).
+
+Run`run_marker_gene_based_prediction.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_marker_gene_based_prediction.py>`__ for marker gene based prediction (Figure 5d,e,f, Extended Data Figure 7).
