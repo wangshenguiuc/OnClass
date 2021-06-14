@@ -17,7 +17,15 @@ OnClass_data_public_minimal.tar.gz is the Ontology_data folder.
 1) scRNA_data
 ~~~~~~~~~
 
-This includes all the single cell gene expression data used in our paper (see Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7).
+Download three parts from `link 1 <https://figshare.com/articles/dataset/OnClass_data_public_scRNA_data_tar_gz_0/14776368>`__, `link 2 <https://figshare.com/articles/dataset/OnClass_data_public_scRNA_data_tar_gz_1/14776380>`__, `link 3 <https://figshare.com/articles/dataset/OnClass_data_public_scRNA_data_tar_gz_2/14776383>`__. Jointly extract the files using
+
+.. code:: bash
+
+	cat OnClass_data_public_scRNA_data.tar.gz.* | tar -xz
+
+..
+
+	This will give you all the single cell gene expression data used in our paper (see Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7).
 
 
 2) Ontology_data
