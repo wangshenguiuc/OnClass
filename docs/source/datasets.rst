@@ -2,7 +2,7 @@ Dataset and pretrained models
 =========
 If you want to use your own training data, please use `OnClass_data_public_minimal.tar.gz <https://figshare.com/articles/dataset/OnClass_data_minimal/14776281>`__. OnClass_data_public_minimal.tar.gz includes the minimal files (ontology files) needed to run OnClass on your own dataset. You need to provide the annotated cells (training data) and then OnClass can classify unannotated cells.
 
-If you don't have your own training data, you can use the annotated gene expression data (e.g., Tabula Muris Senis, Lemur, HLCA, Allen brian) used in OnClass paper or our pretrained models. See scRNA_data below for how to download the annotated gene expression data. See Pretrained_model below for how to download the pretrained model.
+If you don't have your own training data, you can use the annotated gene expression data (e.g., Tabula Muris Senis, Lemur, HLCA, Allen brian) used in OnClass paper or `pretrained models <https://figshare.com/articles/dataset/OnClass_data_public_Pretrained_model/14776326>`__. See scRNA_data below for how to download the annotated gene expression data. See Pretrained_model below for how to download the pretrained model.
 
 1) scRNA_data
 ~~~~~~~~~
@@ -27,13 +27,13 @@ These files are in `OnClass_data_public_minimal.tar.gz <https://figshare.com/art
 3) Pretrained_model
 ~~~~~~~~~
 
-8 tensorflow pretrained models trained from 8 dataset in Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7.
+Download 8 tensorflow `pretrained models <https://figshare.com/articles/dataset/OnClass_data_public_Pretrained_model/14776326>`__ here. They are trained from 8 dataset in Fig. 2, Extended Data Figs. 1-3, Supplementary Figs. 4-7.
 
 
 4) Intermediate_files
 ~~~~~~~~~
 
-This folder stores the intermediate files.
+This folder contains the intermediate files.
 
 We suggest you organize all the downloaded files as the following:
 
