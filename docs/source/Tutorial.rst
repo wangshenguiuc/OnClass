@@ -1,9 +1,11 @@
-Tutorial
+How to run OnClass
 =========
-Here, we provide an introduction of how to use OnClass. We are going to train a model on all FACS cells from Tabula Muris Senis (TMS) and then predict the cell types of all droplet cells in TMS. By using this example, you can see how OnClass embeds the Cell Ontology, reads gene expression data, uses the pretrained model, and makes the prediction on new cells.
 
+To run OnClass, please first install OnClass, download datasets and then change file paths in `config.py <https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>`__
 
-Cell type annotation (Use the pretrained model)
+We provide a `run_OnClass_example.py <https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>`__ and Jupyter notebook as an example to run OnClass. This script trains an OnClass model on all cells from one Lemur dataset, saves that model to a model file, then use this model to classify cells from another Lemur dataset.
+
+Cell type annotation (`run_OnClass_example.py <https://github.com/wangshenguiuc/OnClass/blob/master/run_OnClass_example.py>`__)
 ----------------
 
 The script `AnnotateTMS.py <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__ for transferring cell type annotation is at our `GitHub <https://github.com/wangshenguiuc/OnClass/blob/master/scripts/CellTypeAnnotation/AnnotateTMS.py>`__ We provide a pretrained model in our data repo, which was trained on all FACS cells in tabula muris senis.

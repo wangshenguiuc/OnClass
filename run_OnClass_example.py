@@ -8,6 +8,7 @@ from utils import read_ontology_file, read_data, run_scanorama_multiply_datasets
 from config import ontology_data_dir, scrna_data_dir, model_dir, Run_scanorama_batch_correction, NHIDDEN, MAX_ITER
 train_file = scrna_data_dir + '/Lemur/microcebusBernard.h5ad'
 test_file = scrna_data_dir + '/Lemur/microcebusAntoine.h5ad'
+
 train_label = 'cell_ontology_id'
 test_label = 'cell_ontology_id'
 model_path = model_dir + 'example_file_model'
@@ -25,9 +26,6 @@ train_feature, train_genes, train_label, _, _ = read_data(train_file, cell_ontol
 #train_feature is a ncell by ngene matrix
 #train_genes is a ngene long vector of gene names
 #train_label is a ncell long vector
-train_genes = train_genes[:1000]
-train_feature = train_feature[:2000, :1000]
-train_label = train_label[:2000]
 print ('embed cell types using the cell ontology...')
 OnClass_train_obj.EmbedCellTypes(train_label)
 
@@ -36,9 +34,6 @@ x = read_h5ad(test_file)
 test_label = x.obs[test_label].tolist()
 test_feature = x.X.toarray()
 test_genes = np.array([x.upper() for x in x.var.index])
-test_genes = test_genes[:1000]
-test_feature = test_feature[:3000,:1000]
-test_label = test_label[:3000]
 
 # train the model
 if Run_scanorama_batch_correction:
