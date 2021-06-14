@@ -22,7 +22,7 @@ using pip. Please use Python3.6. To install OnClass using pip, run:
 
 .. code:: bash
 
-	pip install OnClass==1.2
+	pip install OnClass==0.97
 	install tensorflow 2.0
 
 .. _Python Package Index: https://pypi.python.org/pypi
@@ -32,7 +32,7 @@ using pip. Please use Python3.6. To install OnClass using pip, run:
 
 .. code:: bash
 
-	pip install OnClass==1.2
+	pip install OnClass==0.97
 	install tensorflow-gpu 2.0
 
 .. _Python Package Index: https://pypi.python.org/pypi
