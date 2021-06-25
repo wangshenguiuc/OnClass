@@ -10,5 +10,5 @@ model_dir = repo_dir + '/software/OnClass_data_public/Pretrained_model/'
 
 
 Run_scanorama_batch_correction = True
-NHIDDEN = [2]
-MAX_ITER = 1
+NHIDDEN = [100]
+MAX_ITER = 20

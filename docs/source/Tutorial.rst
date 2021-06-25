@@ -72,7 +72,7 @@ Cross dataset prediction
 
 Marker genes identification
 ----------------
-Please first run `run_generate_pretrained_model.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_generate_pretrained_model.py>`__ to generate the intermediate files for marker gene prediction.
+Please first run `run_generate_pretrained_model.py <https://github.com/wangshenguiuc/OnClass/blob/master/script/run_generate_pretrained_model.py>`__ to generate the intermediate files (line 53-54) for marker gene prediction.
 
 Train a model using the seen cell types::
 
