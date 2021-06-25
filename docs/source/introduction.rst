@@ -9,8 +9,8 @@ Introduction
 =========
 OnClass is a python package for single-cell cell type annotation. It uses the Cell Ontology to capture the cell type similarity. These similarities enable OnClass to annotate cell types that are never seen in the training data.
 
-OnClass package is still under development. A preprint of OnClass paper is on `bioRxiv <https://www.biorxiv.org/content/10.1101/810234v1>`__
-All datasets used in OnClass can be found in `figshare <https://figshare.com/projects/OnClass/70637>`__.
+A preprint of OnClass paper is on `bioRxiv <https://www.biorxiv.org/content/10.1101/810234v1>`__
+All datasets used in OnClass can be found in `figshare <https://onclass.readthedocs.io/en/latest/introduction.html>`__.
 Currently, OnClass supports
 
 1) annotate cell type
