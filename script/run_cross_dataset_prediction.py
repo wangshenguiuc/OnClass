@@ -71,6 +71,5 @@ for dname1 in dnames:
 		pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False, use_unseen_distance = -1)
 		#pred_label_str = [OnClass_test_obj.i2co[l] for l in pred_label]
 		#pred_Y_seen, pred_Y_all, pred_label = OnClass.Predict(test_X)
-		sd
 		np.save(output_dir+dname1+'.'+dname2 + 'pred_Y_seen.released.npy',pred_Y_seen)
 		np.save(output_dir+dname1+'.'+dname2 + 'pred_Y_all.released.npy',pred_Y_all)
