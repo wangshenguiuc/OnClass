@@ -68,7 +68,7 @@ for dname1 in dnames:
 		cor_test_feature = OnClass_train_obj.ProcessTestFeature(cor_test_feature, cor_test_genes, use_pretrain = model_path, log_transform = False)
 		OnClass_test_obj.BuildModel(ngene = None, use_pretrain = model_path)
 
-		pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False, use_unseen_distance = -1)
+		pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False, unseen_ratio = -1)
 		#pred_label_str = [OnClass_test_obj.i2co[l] for l in pred_label]
 		#pred_Y_seen, pred_Y_all, pred_label = OnClass.Predict(test_X)
 		np.save(output_dir+dname1+'.'+dname2 + 'pred_Y_seen.released.npy',pred_Y_seen)

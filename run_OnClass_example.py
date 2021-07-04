@@ -50,10 +50,6 @@ OnClass_test_obj = OnClassModel(cell_type_nlp_emb_file = cell_type_nlp_emb_file,
 cor_test_feature = OnClass_train_obj.ProcessTestFeature(cor_test_feature, cor_test_genes, use_pretrain = model_path, log_transform = False)
 OnClass_test_obj.BuildModel(ngene = None, use_pretrain = model_path)
 #prediction
-#use_normalize=False will return a tree-based prediction, where parent node often has higher score than child node. use_normalize=True will normalize among child nodes and parent nodes
-pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=True)
-pred_label_str = [OnClass_test_obj.i2co[l] for l in pred_label]
-#x.obs['OnClass_annotation_flat_based_ontology_ID'] = pred_label_str
 
 pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False)
 pred_label_str = [OnClass_test_obj.i2co[l] for l in pred_label]

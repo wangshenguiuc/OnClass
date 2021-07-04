@@ -49,6 +49,6 @@ for dname in dnames:
 
 	OnClass_test_obj = OnClassModel(cell_type_nlp_emb_file = cell_type_nlp_emb_file, cell_type_network_file = cell_type_network_file)
 	OnClass_test_obj.BuildModel(ngene = None, use_pretrain = model_path)
-	pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(train_feature, test_genes = train_genes, use_normalize=False, use_unseen_distance = -1)
+	pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(train_feature, test_genes = train_genes, use_normalize=False, unseen_ratio = -1)
 	np.save(output_dir+dname + 'pred_Y_seen.released.npy',pred_Y_seen)
 	np.save(output_dir+dname + 'pred_Y_all.released.npy',pred_Y_all)

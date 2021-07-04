@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 from sklearn.preprocessing import normalize
-
+from scipy import stats
 import warnings
 from OnClass.OnClass_utils import *
 from OnClass.BilinearNN import BilinearNN
@@ -139,7 +139,7 @@ class OnClassModel:
 			np.savez(save_model_file, train_feature_mean = self.train_feature_mean, co2i = self.co2i, co2emb = self.co2emb, nhidden = self.nhidden, i2co = self.i2co, genes = self.genes, nco = self.nco, nseen = self.nseen,
 			 ontology_mat = self.ontology_mat, co2vec_nlp_mat = self.co2vec_nlp_mat, ontology_dict = self.ontology_dict)
 
-	def Predict(self, test_feature, test_genes=None, use_normalize=False, refine = True, use_unseen_distance = 2, batch_correct = False):
+	def Predict(self, test_feature, test_genes=None, use_normalize=False, refine = True, unseen_ratio = 0.1, batch_correct = False):
 		"""
 		Predict the label for new cells
 		"""
@@ -155,6 +155,13 @@ class OnClassModel:
 			ratio = (self.nco*1./self.nseen)**2
 			network = create_propagate_networks_using_nlp(self.co2i, self.ontology_dict, self.ontology_mat, self.co2vec_nlp_mat)
 			test_Y_pred_all = extend_prediction_2unseen(test_Y_pred_seen, network, self.nseen, ratio = ratio, use_normalize = use_normalize)
-		if use_unseen_distance>=0:
-			test_Y_pred_all = create_unseen_candidates(self.cell_type_network_file, self.co2i, self.i2co, self.nseen, use_unseen_distance, test_Y_pred_all)
+		if unseen_ratio>0:
+			unseen_confidence = np.max(test_Y_pred_all[:,self.nseen:], axis=1) - np.max(test_Y_pred_all[:,:self.nseen], axis=1)
+			nexpected_unseen = int(np.shape(test_Y_pred_seen)[0] * unseen_ratio) + 1
+			unseen_ind = np.argpartition(unseen_confidence, -1 * nexpected_unseen)[-1 * nexpected_unseen:]
+			seen_ind = np.argpartition(unseen_confidence, -1 * nexpected_unseen)[:-1 * nexpected_unseen]
+
+			test_Y_pred_all[unseen_ind, :self.nseen] -= 1000000
+			test_Y_pred_all[seen_ind, self.nseen:] -= 1000000
+			test_Y_pred_all[:,self.nseen:] = stats.zscore(test_Y_pred_all[:,self.nseen:], axis = 0)
 		return test_Y_pred_seen, test_Y_pred_all, np.argmax(test_Y_pred_all,axis=1)

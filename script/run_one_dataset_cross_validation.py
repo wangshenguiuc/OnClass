@@ -54,7 +54,7 @@ for dname in dnames:
 			cor_test_feature = OnClass_train_obj.ProcessTestFeature(cor_test_feature, cor_test_genes, use_pretrain = model_path, log_transform = False)
 			OnClass_test_obj.BuildModel(ngene = None, use_pretrain = model_path)
 
-			pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False, use_unseen_distance = -1)
+			pred_Y_seen, pred_Y_all, pred_label = OnClass_test_obj.Predict(cor_test_feature, test_genes = cor_test_genes, use_normalize=False, unseen_ratio = -1)
 			#np.save(folder+ 'pred_Y_seen.npy',pred_Y_seen)
 			#np.save(folder+ 'pred_Y_all.npy',pred_Y_all)
 

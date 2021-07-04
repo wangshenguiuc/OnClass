@@ -331,7 +331,7 @@ def mean_normalization(train_X_mean, test_X):
 
 def process_expression(train_X, test_X, train_genes, test_genes):
 	#this data process function is adapted from ACTINN, please check ACTINN for more information.
-	#test_X = map_genes(test_X, test_genes, train_genes)
+	test_X = map_genes(test_X, test_genes, train_genes)
 	c2g = np.vstack([train_X, test_X])
 	c2g = np.array(c2g,  dtype=np.float64)
 	c2g = c2g.T
