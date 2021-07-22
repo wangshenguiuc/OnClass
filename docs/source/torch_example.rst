@@ -32,9 +32,9 @@ This tutorial also uses the following settings::
 	test_label = 'cell_ontology_id'
 	model_path = model_dir + 'example_file_model'
 
-If you are interested in annotating your own datasets do so by replacing train_file and test_file with paths to your own files.
+If you are interested in annotating your own datasets, you can do so by replacing `train_file` and `test_file` with paths to your own files.
 
-Next we must read the cell ontology data and initialize the model as::
+Next we read the cell ontology data and initialize the model as::
     
 	print ('read ontology data and initialize training model...')
 	cell_type_nlp_emb_file, cell_type_network_file, cl_obo_file = read_ontology_file('cell ontology', ontology_data_dir)
@@ -42,7 +42,7 @@ Next we must read the cell ontology data and initialize the model as::
 
 where `MEMORY_SAVING_MODE` is true if you want to run OnClass on low RAM, and false otherwise. This value can be set easily in the `config <https://github.com/wangshenguiuc/OnClass/OnClass_Torch/config.py>`__ file.
 
-Read the training data from the training file::
+Read the training data from the training file as::
 
 	print ('read training single cell data...')
 	train_feature, train_genes, train_label, _, _ = read_data(train_file, cell_ontology_ids = OnClass_train_obj.cell_ontology_ids,
@@ -50,16 +50,14 @@ Read the training data from the training file::
 		nlp_mapping = False, cl_obo_file = cl_obo_file, cell_ontology_file = cell_type_network_file, co2emb = OnClass_train_obj.co2vec_nlp,
 		memory_saving_mode=MEMORY_SAVING_MODE)
 
-where `train_feature` is a sample-by-gene gene expression matrix, `train_label` is a label vector for each sample. The labels in `Y` should use the Cell Ontology Id (e.g., CL:1000398). The data (e.g., tabula muris raw gene expression matrix, the Cell Ontology obo file) can be downloaded from FigShare.(see dataset section in this tutorial).
+where `train_feature` is a sample-by-gene gene expression matrix, `train_label` is a label vector for each sample. The labels in `train_label` in this example are Cell Ontology Ids (e.g., CL:1000398). It's important to add, that if the model is in memory saving mode, it will load `train_feature` as a sparse scipy matrix.
 
-It's important to add, that if the model is in memory saving mode, it will load train_feature as a sparse scipy matrix.
-
-Next, we embed the cell onotology::
+Next, we embed the cell onotology as::
 
 	print ('embed cell types using the cell ontology...')
 	OnClass_train_obj.EmbedCellTypes(train_label)
 
-Read the test data::
+And read the test data as::
 
 	test_label = x.obs[test_label].tolist()
 	test_genes = np.array([x.upper() for x in x.var.index])
