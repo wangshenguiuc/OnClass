@@ -7,7 +7,11 @@ intermediate_dir = data_dir + 'data/OnClass_data_public/Intermediate_files/'
 
 result_dir = repo_dir + '/result/SingleCell/OnClass/Reproduce/'
 figure_dir = repo_dir + '/result/SingleCell/OnClass/Reproduce/Figure/'
+
 model_dir = data_dir + 'data/OnClass_data_public/Pretrained_model/'
 
 
+Run_scanorama_batch_correction = False
+NHIDDEN = [100]
+MAX_ITER = 10
 MEMORY_SAVING_MODE = True
