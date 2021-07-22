@@ -20,7 +20,7 @@ Import OnClass and other libs as::
 	from utils import read_ontology_file, read_data, run_scanorama_multiply_datasets
 	from config import ontology_data_dir, scrna_data_dir, model_dir, Run_scanorama_batch_correction, NHIDDEN, MAX_ITER
 
-Read training and test data. If you don't want to use h5ad file, you can provide training and test data in the format of numpy array to OnClass. Training and test features (gene expression) should be cell by gene 2D array. Training label should be a vector of cell labels. ::
+Read training and test data. Set nlp_mapping = True to use the Char-level LSTM that maps uncontrolled vocabulary to controlled vocabulary. If you don't want to use h5ad file, you can provide training and test data in the format of numpy array to OnClass. Training and test features (gene expression) should be cell by gene 2D array. Training label should be a vector of cell labels. ::
 
 	train_file = scrna_data_dir + '/Lemur/microcebusBernard.h5ad'
 	test_file = scrna_data_dir + '/Lemur/microcebusAntoine.h5ad'

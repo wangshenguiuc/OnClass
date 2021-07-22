@@ -20,7 +20,7 @@ The second step of OnClass is to read the gene expression data with training lab
 
 The gene expression data is used as training data. It includes a cell by gene matrix and a label for each cell.
 
-The label for each cell should be a cell ontology ID or cell ontology terms. If your training labels are not mapped to cell ontology ID, please use our natural language processing tool to map them to existing cell ontology terms. Our tool use a char-level LSTM siamese network and achieve 93.7% accuracy in mapping synonym of cell ontology terms and can deal with composition, misspelling, and abbreviations. For more information about this natural language processing tool, please see section Char-level LSTM for cell type term mapping.
+The label for each cell should be a cell ontology ID or cell ontology terms. If your training labels are not mapped to cell ontology ID, please use our natural language processing tool to map them to existing cell ontology terms. Our tool use a char-level LSTM siamese network (see Tutorial) and achieve 93.7% accuracy in mapping synonym of cell ontology terms and can deal with composition, misspelling, and abbreviations. For more information about this natural language processing tool, please see section Char-level LSTM for cell type term mapping.
 
 OnClass is a highly flexible tool that can support various formats of gene expression data inputs, including scipy sparse matrix, numpy 2D array, tsv format of matrix, tsv format of "gene_name	cell_name	count", scanpy AnnData, and sparse matrix format used by 10X Genomics. Some of these input implementations are adopted from the Scanorama project.
 
@@ -47,5 +47,3 @@ The time and memory complexity of a) and b) are very small (e.g., less than 1 mi
 Here is the flowchart of OnClass, describing these three steps:
 
 .. image:: img/flowchart.png
-
-
