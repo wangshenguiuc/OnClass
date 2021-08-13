@@ -67,14 +67,14 @@ for dnamei, dname1 in enumerate(dnames):
 				our_marker = np.argsort(cor[OnClass_train_obj.co2i[tp],:]*-1)[:topk]
 				our_marker_id = [g2i2[i2g1[gi]] for gi in our_marker if i2g1[gi] in g2i2]
 			Y_true = label_mat2[:,i]
-			Y_pred_our = np.sum(feature2[:, our_marker_id], axis=1)
+			Y_pred_our = np.mean(feature2[:, our_marker_id], axis=1)
 			our_auc = roc_auc_score(Y_true, Y_pred_our)
 			if tp in tp2genes_base and len([g2i2[g] for g in tp2genes_base[tp] if g in g2i2])!=0:
 				base_marker = tp2genes_base[tp]
 				base_marker_id = [g2i2[g] for g in base_marker if g in g2i2]
 				if len(base_marker_id) == 0:
 					continue
-				Y_pred_base = np.sum(feature2[:, base_marker_id], axis=1)
+				Y_pred_base = np.mean(feature2[:, base_marker_id], axis=1)
 				base_auc = roc_auc_score(Y_true, Y_pred_base)#roc_auc_score(Y_true, Y_pred_base)
 				has_truth_our_auc.append(our_auc)
 				has_truth_tp_base_auc.append(base_auc)

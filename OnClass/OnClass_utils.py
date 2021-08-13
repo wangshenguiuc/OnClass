@@ -323,10 +323,13 @@ def renorm(X):
 		Y[:,i] = Y[:,i]/s[i]
 	return Y
 
-def mean_normalization(train_X_mean, test_X):
+def mean_normalization(train_X_mean, test_X, train_X_std = 0):
 	test_X = np.log1p(test_X)
 	test_X_mean = np.mean(test_X, axis = 0)
-	test_X = test_X - test_X_mean + train_X_mean
+	ncell, ngene = np.shape(test_X)
+	for i in range(ncell):
+		for j in range(ngene):
+			test_X[i,j] = (test_X[i,j] - test_X_mean[j] + train_X_mean[j]) / train_X_std[j]
 	return test_X
 
 def process_expression(train_X, test_X, train_genes, test_genes):
