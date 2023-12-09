@@ -16,7 +16,7 @@ import copy
 from sklearn import preprocessing
 from sklearn.metrics.pairwise import cosine_similarity
 #from libs import *
-from sklearn.utils.graph_shortest_path import graph_shortest_path
+from scipy.sparse.csgraph import shortest_path as graph_shortest_path
 from scipy.sparse.linalg import svds, eigs
 
 def get_ontology_parents(GO_net, g, dfs_depth):
