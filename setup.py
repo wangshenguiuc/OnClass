@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "OnClass",
-    version = "1.2",
+    version = "1.3",
     keywords = ("pip", "single cell", "OnClass"),
     description = "Single Cell Annotation based on the Cell Ontology",
     long_description = "Unifying single-cell annotations based on the Cell Ontology",
@@ -16,14 +16,14 @@ setup(
     include_package_data = True,
     platforms = "any",
     install_requires=[
-		'sentence-transformers',
-		'anndata>=0.6.4',
-    'fbpca>=1.0',
-    'umap-learn>=0.3.10',
-    'matplotlib>=2.0.2',
-    'numpy>=1.16.4',
-    'scipy>=1.3.1',
-    'scikit-learn>=0.21.3',
-		'scanorama>=1.7.1'
+      'sentence-transformers',
+      'anndata>=0.6.4',
+      'fbpca>=1.0',
+      'umap-learn>=0.3.10',
+      'matplotlib>=2.0.2',
+      'numpy>=1.16.4',
+      'scipy>=1.3.1',
+      'scikit-learn>=0.21.3',
+      'scanorama>=1.7.1'
     ]
 )
