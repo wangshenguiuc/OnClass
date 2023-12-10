@@ -21,7 +21,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scanorama import VERBOSE, KNN, ALPHA, APPROX, SIGMA
 #from libs import *
 from scanorama import find_alignments,merge_datasets,process_data,transform,vstack
-from sklearn.utils.graph_shortest_path import graph_shortest_path
+from scipy.sparse.csgraph import shortest_path as graph_shortest_path
 from scipy.sparse.linalg import svds, eigs
 
 nn_nhidden = [1000]

@@ -164,4 +164,7 @@ class OnClassModel:
 			test_Y_pred_all[unseen_ind, :self.nseen] -= 1000000
 			test_Y_pred_all[seen_ind, self.nseen:] -= 1000000
 			test_Y_pred_all[:,self.nseen:] = stats.zscore(test_Y_pred_all[:,self.nseen:], axis = 0)
-		return test_Y_pred_seen, test_Y_pred_all, np.argmax(test_Y_pred_all,axis=1)
+		if refine:
+			return test_Y_pred_seen, test_Y_pred_all, np.argmax(test_Y_pred_all,axis=1)
+		else:
+			return test_Y_pred_seen
